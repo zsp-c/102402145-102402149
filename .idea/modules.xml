@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ProjectModuleManager">
+    <modules>
+      <module fileurl="file://$PROJECT_DIR$/.idea/102402145-102402149.iml" filepath="$PROJECT_DIR$/.idea/102402145-102402149.iml" />
+      <module fileurl="file://$PROJECT_DIR$/campus_lost_found_client/campus_lost_found_client.iml" filepath="$PROJECT_DIR$/campus_lost_found_client/campus_lost_found_client.iml" />
+    </modules>
+  </component>
+</project>

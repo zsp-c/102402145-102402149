@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+                             http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-parent</artifactId>
+    <version>3.2.5</version>
+    <relativePath/>
+  </parent>
+
+  <groupId>com.zsp.campus</groupId>
+  <artifactId>campus_lost_found_platform</artifactId>
+  <version>1.0-SNAPSHOT</version>
+  <packaging>pom</packaging>
+
+  <modules>
+    <module>campus-pojo</module>
+    <module>campus-common</module>
+    <module>campus-server</module>
+  </modules>
+
+  <properties>
+    <java.version>21</java.version>
+    <maven.compiler.source>21</maven.compiler.source>
+    <maven.compiler.target>21</maven.compiler.target>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+
+    <lombok>1.18.32</lombok>
+    <fastjson2>2.0.51</fastjson2>
+    <commons-lang3>3.14.0</commons-lang3>
+    <druid>1.2.23</druid>
+    <pagehelper>1.4.7</pagehelper>
+    <mybatis-plus>3.5.5</mybatis-plus>
+    <knife4j>4.4.0</knife4j>
+    <!-- 仅注解，供 campus-pojo 的 DTO 使用；接口文档由 campus-server 的 knife4j 提供 -->
+    <swagger-annotations>2.2.21</swagger-annotations>
+    <aspectj>1.9.21</aspectj>
+    <jjwt>0.11.5</jjwt>
+    <aliyun.sdk.oss>3.17.4</aliyun.sdk.oss>
+  </properties>
+
+  <dependencyManagement>
+    <dependencies>
+      <!-- MyBatis-Plus（Spring Boot 3 专用） -->
+      <dependency>
+        <groupId>com.baomidou</groupId>
+        <artifactId>mybatis-plus-spring-boot3-starter</artifactId>
+        <version>${mybatis-plus}</version>
+      </dependency>
+
+      <dependency>
+        <groupId>org.projectlombok</groupId>
+        <artifactId>lombok</artifactId>
+        <version>${lombok}</version>
+      </dependency>
+
+      <!-- Fastjson2 -->
+      <dependency>
+        <groupId>com.alibaba.fastjson2</groupId>
+        <artifactId>fastjson2</artifactId>
+        <version>${fastjson2}</version>
+      </dependency>
+
+      <!-- Commons Lang3 -->
+      <dependency>
+        <groupId>org.apache.commons</groupId>
+        <artifactId>commons-lang3</artifactId>
+        <version>${commons-lang3}</version>
+      </dependency>
+
+      <!-- Druid -->
+      <dependency>
+        <groupId>com.alibaba</groupId>
+        <artifactId>druid-spring-boot-3-starter</artifactId>
+        <version>${druid}</version>
+      </dependency>
+
+      <!-- PageHelper -->
+      <dependency>
+        <groupId>com.github.pagehelper</groupId>
+        <artifactId>pagehelper-spring-boot-starter</artifactId>
+        <version>${pagehelper}</version>
+      </dependency>
+
+      <!-- Knife4j (Spring Boot 3 + Jakarta) -->
+      <dependency>
+        <groupId>com.github.xiaoymin</groupId>
+        <artifactId>knife4j-openapi3-jakarta-spring-boot-starter</artifactId>
+        <version>${knife4j}</version>
+      </dependency>
+
+      <!-- Swagger 注解（Jakarta）：DTO 模块只需要注解，避免拖入整个 web starter -->
+      <dependency>
+        <groupId>io.swagger.core.v3</groupId>
+        <artifactId>swagger-annotations-jakarta</artifactId>
+        <version>${swagger-annotations}</version>
+      </dependency>
+
+      <!-- AspectJ -->
+      <dependency>
+        <groupId>org.aspectj</groupId>
+        <artifactId>aspectjrt</artifactId>
+        <version>${aspectj}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.aspectj</groupId>
+        <artifactId>aspectjweaver</artifactId>
+        <version>${aspectj}</version>
+      </dependency>
+
+      <!-- JJWT 新版（拆成三个 artifact） -->
+      <dependency>
+        <groupId>io.jsonwebtoken</groupId>
+        <artifactId>jjwt-api</artifactId>
+        <version>${jjwt}</version>
+      </dependency>
+      <dependency>
+        <groupId>io.jsonwebtoken</groupId>
+        <artifactId>jjwt-impl</artifactId>
+        <version>${jjwt}</version>
+        <scope>runtime</scope>
+      </dependency>
+      <dependency>
+        <groupId>io.jsonwebtoken</groupId>
+        <artifactId>jjwt-jackson</artifactId>
+        <version>${jjwt}</version>
+        <scope>runtime</scope>
+      </dependency>
+
+      <!-- 阿里云 OSS -->
+      <dependency>
+        <groupId>com.aliyun.oss</groupId>
+        <artifactId>aliyun-sdk-oss</artifactId>
+        <version>${aliyun.sdk.oss}</version>
+      </dependency>
+
+    </dependencies>
+  </dependencyManagement>
+</project>
