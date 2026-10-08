@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'services/api_service.dart';
+import 'screens/login_page.dart';
 import 'screens/home_page.dart';
 
 void main() {
@@ -34,7 +36,7 @@ class CampusLostFoundApp extends StatelessWidget {
         ),
         useMaterial3: true,
       ),
-      home: const HomePage(),
+      home: ApiConfig.isLoggedIn ? const HomePage() : const LoginPage(),
     );
   }
 }

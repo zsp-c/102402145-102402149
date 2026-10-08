@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../data/app_data.dart';
 import '../models/item_model.dart';
+import '../utils/toast_util.dart';
+import 'edit_item_page.dart';
 import 'user_profile_page.dart';
 
 /// 物品详情页，对应接口文档 `GET /items/{id}`（ItemDetail）。
@@ -19,7 +21,16 @@ class DetailPage extends StatefulWidget {
 class _DetailPageState extends State<DetailPage> {
   int _imageIndex = 0;
 
-  ItemModel get item => widget.item;
+  /// 用可变副本持有，编辑保存后可刷新显示。
+  late ItemModel _item;
+
+  ItemModel get item => _item;
+
+  @override
+  void initState() {
+    super.initState();
+    _item = widget.item;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -229,10 +240,10 @@ class _DetailPageState extends State<DetailPage> {
   // -------------------------------------------------------------- 发布者卡
 
   Widget _buildPublisherCard() {
-    final publisher = item.publisher;
-    if (publisher == null) return const SizedBox.shrink();
+    final user = item.user;
+    if (user == null) return const SizedBox.shrink();
     return GestureDetector(
-      onTap: () => _openPublisherProfile(publisher),
+      onTap: () => _openPublisherProfile(user),
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 16),
         padding: const EdgeInsets.all(16),
@@ -254,7 +265,7 @@ class _DetailPageState extends State<DetailPage> {
                 shape: BoxShape.circle,
               ),
               alignment: Alignment.center,
-              child: Text(publisher.nickname.isEmpty ? '?' : publisher.nickname[0],
+              child: Text(user.nickname.isEmpty ? '?' : user.nickname[0],
                   style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w700)),
             ),
             const SizedBox(width: 12),
@@ -264,7 +275,7 @@ class _DetailPageState extends State<DetailPage> {
                 children: [
                   Row(
                     children: [
-                      Text(publisher.nickname,
+                      Text(user.nickname,
                           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Color(0xFF1F2937))),
                       const SizedBox(width: 8),
                       Container(
@@ -273,13 +284,13 @@ class _DetailPageState extends State<DetailPage> {
                           color: const Color(0xFFE8F8F5),
                           borderRadius: BorderRadius.circular(10),
                         ),
-                        child: Text('${publisher.college} · ${publisher.grade}',
+                        child: Text('${user.college} · ${user.grade}',
                             style: const TextStyle(color: Color(0xFF2DB8A3), fontSize: 12, fontWeight: FontWeight.w600)),
                       ),
                     ],
                   ),
                   const SizedBox(height: 4),
-                  Text('累计发布 ${publisher.totalPublished} 条 · 已帮助 ${publisher.helpedCount} 位同学',
+                  Text('累计发布 ${user.totalPublish} 条 · 已帮助 ${user.helpedCount} 位同学',
                       style: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 13)),
                 ],
               ),
@@ -291,9 +302,9 @@ class _DetailPageState extends State<DetailPage> {
     );
   }
 
-  void _openPublisherProfile(PublisherModel publisher) {
+  void _openPublisherProfile(UserModel user) {
     // 发布者是本人的话，展示自己的完整资料。
-    final isSelf = publisher.id == AppData.currentUser.id;
+    final isSelf = user.userId == AppData.currentUser.userId;
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => UserProfilePage(
@@ -470,17 +481,24 @@ class _DetailPageState extends State<DetailPage> {
   }
 
   void _toast(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), duration: const Duration(seconds: 2)),
-    );
+    ToastUtil.info(context, message);
   }
 
-  void _onEdit() => _toast('修改功能待接入 PUT /items/{id}');
+  Future<void> _onEdit() async {
+    final updated = await Navigator.of(context).push<ItemModel>(
+      MaterialPageRoute(
+        builder: (_) => EditItemPage(item: _item),
+      ),
+    );
+    if (updated != null && mounted) {
+      setState(() => _item = updated);
+    }
+  }
 
   /// 对应接口文档 `POST /items/{id}/contact`：
   /// 请求体只带附言，「自身信息」由服务端从 token 中取，随消息一起发给对方。
   Future<void> _onContact() async {
-    final peer = item.publisher;
+    final peer = item.user;
     final me = AppData.currentUser;
     final messageCtrl = TextEditingController();
 
@@ -568,6 +586,7 @@ class _DetailPageState extends State<DetailPage> {
         peerNickname: peer?.nickname ?? '发布者',
         peerCollege: peer?.college ?? '',
         peerGrade: peer?.grade ?? '',
+        peerPhone: peer?.phone ?? '',
         message: message.isEmpty ? '想和你核对一下这件物品的信息。' : message,
         read: true,
         createdAt: '刚刚',

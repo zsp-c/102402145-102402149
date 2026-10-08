@@ -1,3 +1,51 @@
+server:
+  port: 8080
+
 spring:
-  application:
-    name: campus-server
+  profiles:
+    active: dev
+  main:
+    allow-circular-references: true
+  datasource:
+    druid:
+      driver-class-name: ${campus.datasource.driver-class-name}
+      url: jdbc:mysql://${campus.datasource.host}:${campus.datasource.port}/${campus.datasource.database}?serverTimezone=Asia/Shanghai&useUnicode=true&characterEncoding=utf-8&zeroDateTimeBehavior=convertToNull&useSSL=false&allowPublicKeyRetrieval=true
+      username: ${campus.datasource.username}
+      password: ${campus.datasource.password}
+
+mybatis-plus:
+  #mapper配置文件
+  mapper-locations: classpath:mapper/*.xml
+  type-aliases-package: com.zsp.campus.entity
+  configuration:
+    #开启驼峰命名
+    map-underscore-to-camel-case: true
+    cache-enabled: false
+  global-config:
+    db-config:
+      id-type: assign_id
+      update-strategy: not_null
+
+logging:
+  level:
+    com:
+      sky:
+        mapper: debug
+        service: info
+        controller: info
+
+campus:
+  jwt:
+    # 设置jwt签名加密时使用的秘钥
+    user-secret-key: ${campus.jwt.user-secret-key}
+    # 设置jwt过期时间
+    user-ttl: 72000
+    # 设置前端传递过来的令牌名称
+    user-token-name: token
+
+  alioss:
+    endpoint: ${campus.alioss.endpoint}
+    accessKeyId: ${campus.alioss.accessKeyId}
+    accessKeySecret: ${campus.alioss.accessKeySecret}
+    bucketName: ${campus.alioss.bucketName}
+

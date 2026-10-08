@@ -96,13 +96,15 @@ class AppData {
     description: '今天上午在图书馆三楼靠窗自习区整理桌面时，在靠墙的插座旁发现这个充电盒。'
         '盒子外面套着一层透明硅胶保护套，左上角有一道明显的划痕，盒盖内侧贴了一张很小的卡通贴纸。'
         '目前已经交到图书馆一楼服务台代为保管，失主可凭校园卡前往核对认领。',
-    publisher: PublisherModel(
-      id: 1,
+    user: UserModel(
+      userId: 1,
+      studentId: '2024****37',
       nickname: '林小满',
       college: '信电学院',
       grade: '大二',
+      phone: '138****6621',
       followed: true,
-      totalPublished: 7,
+      totalPublish: 7,
       helpedCount: 5,
     ),
   );
@@ -167,46 +169,38 @@ class AppData {
     ),
   ];
 
-  /// `GET /search/hot-words`
-  static final List<HotWordModel> hotWords = [
-    HotWordModel(word: '耳机', heat: 328, icon: '🎧'),
-    HotWordModel(word: '一卡通', heat: 265, icon: '💳'),
-    HotWordModel(word: '钥匙', heat: 214, icon: '🔑'),
-    HotWordModel(word: '图书馆', heat: 186, icon: '📚'),
-    HotWordModel(word: '水杯', heat: 132, icon: '🥤'),
-    HotWordModel(word: '充电宝', heat: 98, icon: '🔋'),
-    HotWordModel(word: '雨伞', heat: 76, icon: '☂️'),
-  ];
-
   /// `GET /search/history`
   static final List<String> searchHistory = ['学生证', '操场', '充电线'];
 
-  /// `GET /users/me`
-  static final UserModel currentUser = UserModel(
-    id: 1,
+  /// `GET /users/me` —— 当前登录用户。
+  /// 登录成功后由 AuthService 覆盖为后端返回的真实用户。
+  static UserModel currentUser = UserModel(
+    userId: 1,
     studentId: '2024****37',
     nickname: '林小满',
     college: '信电学院',
     grade: '大二',
+    phone: '138****6621',
     joinedDays: 213,
-    totalPublished: 7,
+    totalPublish: 7,
     totalOngoing: 4,
-    totalResolved: 3,
+    totalCompleted: 3,
     helpedCount: 5,
     followed: true,
   );
 
   /// `GET /users/{userId}` —— 详情页发布者对应的完整用户资料。
   static final UserModel otherUser = UserModel(
-    id: 2,
+    userId: 2,
     studentId: '2023****18',
     nickname: '陈昊',
     college: '机械学院',
     grade: '大三',
+    phone: '159****3308',
     joinedDays: 428,
-    totalPublished: 12,
+    totalPublish: 12,
     totalOngoing: 3,
-    totalResolved: 9,
+    totalCompleted: 9,
     helpedCount: 21,
     followed: false,
   );
@@ -262,6 +256,7 @@ class AppData {
       peerCollege: '机械学院',
       peerGrade: '大三',
       peerStudentId: '2023****18',
+      peerPhone: '138****6621',
       message: '同学你好，我上周在图书馆丢过一个同款，方便的话想核对一下划痕位置。',
       createdAt: '今天 10:12',
     ),
@@ -275,6 +270,7 @@ class AppData {
       peerCollege: '外国语学院',
       peerGrade: '大一',
       peerStudentId: '2025****64',
+      peerPhone: '159****3308',
       message: '请问表带内侧有没有刻字？我丢的那只有。',
       read: true,
       createdAt: '昨天 19:38',

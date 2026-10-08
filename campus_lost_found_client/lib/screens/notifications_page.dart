@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../data/app_data.dart';
 import '../models/item_model.dart';
+import '../utils/toast_util.dart';
 
 /// 消息通知页，对应接口文档 `GET /notifications`。
 /// 由首页右上角铃铛进入；「联系 TA」发出的联系申请也会出现在这里。
@@ -44,17 +45,66 @@ class _NotificationsPageState extends State<NotificationsPage> {
               padding: const EdgeInsets.all(16),
               itemCount: items.length,
               separatorBuilder: (_, __) => const SizedBox(height: 12),
-              itemBuilder: (context, index) => _buildCard(items[index]),
+              itemBuilder: (context, index) => _buildDismissible(items[index], index),
             ),
     );
   }
 
+  /// 左滑删除。未读 / 已读删除后给出不同提示。
+  Widget _buildDismissible(NotificationModel n, int index) {
+    return Dismissible(
+      key: ValueKey(n.id),
+      direction: DismissDirection.endToStart,
+      background: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 20),
+        decoration: BoxDecoration(
+          color: const Color(0xFFE54D42),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: const Icon(Icons.delete_outline, color: Colors.white, size: 22),
+      ),
+      confirmDismiss: (_) async {
+        final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('删除通知', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+            content: Text('确定删除这条${n.read ? '已读' : '未读'}消息吗？'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(false),
+                child: const Text('取消', style: TextStyle(color: Color(0xFF6B7280))),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(true),
+                child: const Text('删除', style: TextStyle(color: Color(0xFFE54D42))),
+              ),
+            ],
+          ),
+        );
+        return confirmed ?? false;
+      },
+      onDismissed: (_) {
+        setState(() => _items.removeAt(index));
+        // 未读数是 getter 自动计算，删除未读消息会自动减少。
+        ToastUtil.success(context, n.read ? '已删除' : '已删除一条未读消息');
+      },
+      child: _buildCard(n),
+    );
+  }
+
   void _markAllRead() {
+    final unread = _items.where((e) => !e.read).length;
+    if (unread == 0) {
+      ToastUtil.info(context, '没有未读消息');
+      return;
+    }
     setState(() {
       for (final n in _items) {
         n.read = true;
       }
     });
+    ToastUtil.success(context, '已将 $unread 条消息标记为已读');
   }
 
   Widget _buildEmpty() {
@@ -136,6 +186,17 @@ class _NotificationsPageState extends State<NotificationsPage> {
                         const SizedBox(height: 2),
                         Text('${n.peerCollege} · ${n.peerGrade} · 学号 ${n.peerStudentId}',
                             style: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 12)),
+                        if (n.peerPhone.isNotEmpty) ...[
+                          const SizedBox(height: 2),
+                          Row(
+                            children: [
+                              const Icon(Icons.phone, color: Color(0xFF9CA3AF), size: 12),
+                              const SizedBox(width: 4),
+                              Text(n.peerPhone,
+                                  style: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 12)),
+                            ],
+                          ),
+                        ],
                       ],
                     ],
                   ),
