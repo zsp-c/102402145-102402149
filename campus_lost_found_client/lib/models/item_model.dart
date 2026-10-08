@@ -74,29 +74,6 @@ class ItemStatus {
   }
 }
 
-/// 发布者公开信息，对应接口文档 `PublisherInfo`。
-class PublisherModel {
-  final int id;
-  final String nickname;
-  final String avatar;
-  final String college;
-  final String grade;
-  final bool followed;
-  final int totalPublished;
-  final int helpedCount;
-
-  PublisherModel({
-    required this.id,
-    required this.nickname,
-    this.avatar = '',
-    required this.college,
-    required this.grade,
-    this.followed = false,
-    this.totalPublished = 0,
-    this.helpedCount = 0,
-  });
-}
-
 /// 信息条目，覆盖接口文档的 `ItemListItem`（列表）与 `ItemDetail`（详情）。
 class ItemModel {
   final int id;
@@ -118,7 +95,7 @@ class ItemModel {
 
   // ---- 以下仅详情接口 `ItemDetail` 返回 ----
   final String? description;
-  final PublisherModel? publisher;
+  final UserModel? user;
 
   ItemModel({
     required this.id,
@@ -134,7 +111,7 @@ class ItemModel {
     this.viewCount = 0,
     this.claimCount = 0,
     this.description,
-    this.publisher,
+    this.user,
   });
 
   String get typeLabel => ItemType.labelOf(type);
@@ -152,38 +129,61 @@ class ItemModel {
       (description == null || description!.isEmpty) ? summary : description!;
 }
 
-/// 用户信息，对应接口文档 `UserInfo`。
+/// 用户信息，对应后端 com.zsp.campus.entity.User。
+/// 字段名与后端 JSON 保持一致，由 Jackson 自动序列化/反序列化。
 class UserModel {
-  final int id;
-  final String studentId; // 脱敏学号
+  final int userId;
+  final String studentId;
   final String nickname;
   final String avatar;
   final String college;
   final String grade;
+  final String phone;
+  final int totalPublish;
+  final int totalCompleted;
+  final int? status;
+
+  // ---- 以下为前端扩展字段，后端 User 实体未提供，mock 数据使用 ----
   final int joinedDays;
-  final int totalPublished;
   final int totalOngoing;
-  final int totalResolved;
-  final int helpedCount; // 已帮助人数
-  final bool followed; // 当前用户是否已关注
+  final int helpedCount;
+  final bool followed;
 
   UserModel({
-    required this.id,
+    required this.userId,
     required this.studentId,
     required this.nickname,
     this.avatar = '',
     required this.college,
     required this.grade,
+    this.phone = '',
+    this.totalPublish = 0,
+    this.totalCompleted = 0,
+    this.status,
     this.joinedDays = 0,
-    this.totalPublished = 0,
     this.totalOngoing = 0,
-    this.totalResolved = 0,
     this.helpedCount = 0,
     this.followed = false,
   });
 
   /// 头像占位用的首字。
   String get avatarText => nickname.isEmpty ? '?' : nickname[0];
+
+  /// 从后端 User JSON 反序列化，字段名一一对应，无需转换。
+  factory UserModel.fromJson(Map<String, dynamic> json) {
+    return UserModel(
+      userId: (json['userId'] as num?)?.toInt() ?? 0,
+      studentId: json['studentId'] as String? ?? '',
+      nickname: json['nickname'] as String? ?? '',
+      avatar: json['avatar'] as String? ?? '',
+      college: json['college'] as String? ?? '',
+      grade: json['grade'] as String? ?? '',
+      phone: json['phone'] as String? ?? '',
+      totalPublish: (json['totalPublish'] as num?)?.toInt() ?? 0,
+      totalCompleted: (json['totalCompleted'] as num?)?.toInt() ?? 0,
+      status: (json['status'] as num?)?.toInt(),
+    );
+  }
 }
 
 /// 首页顶部统计，对应接口文档 `HomeStats`。
@@ -196,19 +196,6 @@ class HomeStatsModel {
     required this.totalItems,
     required this.helpedCount,
     required this.todayNew,
-  });
-}
-
-/// 热门搜索词，对应接口文档 `HotWord`。
-class HotWordModel {
-  final String word;
-  final int heat;
-  final String icon;
-
-  HotWordModel({
-    required this.word,
-    this.heat = 0,
-    this.icon = '',
   });
 }
 
@@ -246,6 +233,7 @@ class NotificationModel {
   final String peerCollege;
   final String peerGrade;
   final String peerStudentId;
+  final String peerPhone;
 
   /// 附言。
   final String message;
@@ -263,6 +251,7 @@ class NotificationModel {
     this.peerCollege = '',
     this.peerGrade = '',
     this.peerStudentId = '',
+    this.peerPhone = '',
     this.message = '',
     this.read = false,
     this.createdAt = '',

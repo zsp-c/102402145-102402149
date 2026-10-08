@@ -181,11 +181,11 @@ class _UserProfilePageState extends State<UserProfilePage> {
       ),
       child: Row(
         children: [
-          _buildStatCell('${user.totalPublished}', '累计发布', const Color(0xFFFF7A2E)),
+          _buildStatCell('${user.totalPublish}', '累计发布', const Color(0xFFFF7A2E)),
           _divider(),
           _buildStatCell('${user.totalOngoing}', '进行中', const Color(0xFF2DB8A3)),
           _divider(),
-          _buildStatCell('${user.totalResolved}', '已找回', const Color(0xFF4B5563)),
+          _buildStatCell('${user.totalCompleted}', '已找回', const Color(0xFF4B5563)),
           _divider(),
           _buildStatCell('${user.helpedCount}', '已帮助', const Color(0xFF6B7FE3)),
         ],

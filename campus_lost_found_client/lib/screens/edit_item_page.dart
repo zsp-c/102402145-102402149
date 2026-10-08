@@ -6,9 +6,7 @@ import '../models/item_model.dart';
 import '../services/api_service.dart';
 import '../utils/toast_util.dart';
 
-/// 单张图片的上传状态。
-/// 选图后立即上传至阿里云 OSS，成功后保存返回的 URL，
-/// 发布时只提交已上传成功的 URL 列表。
+/// 单张新增图片的上传状态（已有图片直接是 OSS URL，不需要此结构）。
 class _ImageEntry {
   final String localPath;
   String? ossUrl;
@@ -23,30 +21,95 @@ class _ImageEntry {
   bool get ready => ossUrl != null && ossUrl!.isNotEmpty;
 }
 
-class PublishPage extends StatefulWidget {
-  const PublishPage({super.key, this.onBack, this.onPublished});
+/// 编辑已发布物品。
+///
+/// 视觉风格与 `PublishPage` 保持一致，区别在于：
+/// - 表单字段用原物品数据预填充；
+/// - 已有图片直接展示 OSS URL，可删除；
+/// - 新增图片走 OSS 上传，成功后才计入保存；
+/// - 保存时用新字段替换 `AppData` 中对应 id 的条目（保留 id / 浏览量 / 发布者等不可编辑字段）。
+class EditItemPage extends StatefulWidget {
+  final ItemModel item;
 
-  /// 由 HomePage 注入：作为底部栏 Tab 内嵌时没有可 pop 的路由，
-  /// 返回箭头需要切回首页。
-  final VoidCallback? onBack;
+  /// 保存成功后的回调（用于刷新详情页 / 列表页）。
+  final VoidCallback? onSaved;
 
-  /// 发布成功后的回调：跳回首页。
-  final VoidCallback? onPublished;
+  const EditItemPage({super.key, required this.item, this.onSaved});
 
   @override
-  State<PublishPage> createState() => _PublishPageState();
+  State<EditItemPage> createState() => _EditItemPageState();
 }
 
-class _PublishPageState extends State<PublishPage> {
-  int _mode = 0;
-  String? _selectedCategory;
+class _EditItemPageState extends State<EditItemPage> {
+  late int _mode;
+  late String? _selectedCategory;
   bool _submitting = false;
   DateTime? _selectedDate;
   TimeOfDay? _selectedTime;
-  final List<_ImageEntry> _images = [];
+
+  /// 原物品已有的图片（OSS URL），可删除。
+  late List<String> _existingImages;
+
+  /// 本次新增、待上传 / 已上传的图片。
+  final List<_ImageEntry> _newImages = [];
+
   final _nameCtrl = TextEditingController();
   final _descCtrl = TextEditingController();
-  final _locationCtrl = TextEditingController(text: '图书馆三楼自习区');
+  final _locationCtrl = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    final item = widget.item;
+    _mode = item.type == ItemType.lost ? 0 : 1;
+    _selectedCategory = item.categoryName;
+    _nameCtrl.text = item.title;
+    _descCtrl.text = item.fullDescription;
+    _locationCtrl.text = item.location;
+    _existingImages = List<String>.from(item.images);
+    _parseLostOrFoundTime(item.lostOrFoundTime);
+  }
+
+  /// 解析 `lostOrFoundTime`，兼容 `yyyy-MM-dd HH:mm` 与「今天/昨天/前天 HH:mm」两种常见格式。
+  void _parseLostOrFoundTime(String raw) {
+    if (raw.isEmpty) return;
+    try {
+      final match = RegExp(r'(\d{4})-(\d{1,2})-(\d{1,2})\s+(\d{1,2}):(\d{2})').firstMatch(raw);
+      if (match != null) {
+        _selectedDate = DateTime(
+          int.parse(match.group(1)!),
+          int.parse(match.group(2)!),
+          int.parse(match.group(3)!),
+        );
+        _selectedTime = TimeOfDay(
+          hour: int.parse(match.group(4)!),
+          minute: int.parse(match.group(5)!),
+        );
+        return;
+      }
+      final now = DateTime.now();
+      int offsetDays = 0;
+      if (raw.contains('今天')) {
+        offsetDays = 0;
+      } else if (raw.contains('昨天')) {
+        offsetDays = -1;
+      } else if (raw.contains('前天')) {
+        offsetDays = -2;
+      } else {
+        return;
+      }
+      final timeMatch = RegExp(r'(\d{1,2}):(\d{2})').firstMatch(raw);
+      if (timeMatch == null) return;
+      final d = now.add(Duration(days: offsetDays));
+      _selectedDate = DateTime(d.year, d.month, d.day);
+      _selectedTime = TimeOfDay(
+        hour: int.parse(timeMatch.group(1)!),
+        minute: int.parse(timeMatch.group(2)!),
+      );
+    } catch (_) {
+      // 解析失败就让用户重新选
+    }
+  }
 
   @override
   void dispose() {
@@ -56,6 +119,8 @@ class _PublishPageState extends State<PublishPage> {
     super.dispose();
   }
 
+  int get _totalImages => _existingImages.length + _newImages.length;
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -64,19 +129,12 @@ class _PublishPageState extends State<PublishPage> {
         title: Row(
           children: [
             GestureDetector(
-              onTap: () {
-                if (widget.onBack != null) {
-                  widget.onBack!();
-                } else {
-                  Navigator.of(context).maybePop();
-                }
-              },
+              onTap: () => Navigator.of(context).maybePop(),
               child: const Icon(Icons.arrow_back_ios, color: Colors.white, size: 20),
             ),
             const Spacer(),
-            const Text('发布信息'),
+            const Text('修改信息'),
             const Spacer(),
-            // 留白，与左侧返回箭头宽度对称，保证标题居中
             const SizedBox(width: 20),
           ],
         ),
@@ -90,8 +148,6 @@ class _PublishPageState extends State<PublishPage> {
               children: [
                 _buildModeSwitch(),
                 const SizedBox(height: 14),
-                _buildHint(),
-                const SizedBox(height: 18),
                 _buildItemInfoCard(),
                 const SizedBox(height: 16),
                 _buildTimeLocationCard(),
@@ -108,7 +164,7 @@ class _PublishPageState extends State<PublishPage> {
                 width: double.infinity,
                 height: 52,
                 child: ElevatedButton(
-                  onPressed: _submitting ? null : _publish,
+                  onPressed: _submitting ? null : _save,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFFFF7A2E),
                     foregroundColor: Colors.white,
@@ -127,7 +183,7 @@ class _PublishPageState extends State<PublishPage> {
                             valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                           ),
                         )
-                      : const Text('立即发布',
+                      : const Text('保存修改',
                           style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
                 ),
               ),
@@ -162,7 +218,7 @@ class _PublishPageState extends State<PublishPage> {
                     Icon(Icons.help_outline,
                         color: _mode == 0 ? Colors.white : const Color(0xFF6B7280), size: 20),
                     const SizedBox(width: 6),
-                    Text('我丢了东西',
+                    Text('寻物启事',
                         style: TextStyle(
                             color: _mode == 0 ? Colors.white : const Color(0xFF374151),
                             fontSize: 15,
@@ -187,7 +243,7 @@ class _PublishPageState extends State<PublishPage> {
                     Icon(Icons.favorite_border,
                         color: _mode == 1 ? Colors.white : const Color(0xFF6B7280), size: 20),
                     const SizedBox(width: 6),
-                    Text('我捡到东西',
+                    Text('失物招领',
                         style: TextStyle(
                             color: _mode == 1 ? Colors.white : const Color(0xFF374151),
                             fontSize: 15,
@@ -195,32 +251,6 @@ class _PublishPageState extends State<PublishPage> {
                   ],
                 ),
               ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildHint() {
-    final isLost = _mode == 0;
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFF4E8),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Icon(Icons.info_outline, color: Color(0xFFFF7A2E), size: 18),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              isLost
-                  ? '填写你丢失的物品信息，发布后会出现在「寻物启事」列表，全校同学都能帮你留意。'
-                  : '填写你捡到的物品信息，发布后会出现在「失物招领」列表，方便失主核对认领。',
-              style: const TextStyle(color: Color(0xFF8A4A1F), fontSize: 13, height: 1.5),
             ),
           ),
         ],
@@ -330,8 +360,9 @@ class _PublishPageState extends State<PublishPage> {
       spacing: 10,
       runSpacing: 10,
       children: [
-        ..._images.map((entry) => _buildImageThumb(entry)),
-        if (_images.length < 6)
+        ..._existingImages.map((url) => _buildExistingImageThumb(url)),
+        ..._newImages.map((entry) => _buildNewImageThumb(entry)),
+        if (_totalImages < 6)
           GestureDetector(
             onTap: _pickImage,
             child: Container(
@@ -350,7 +381,47 @@ class _PublishPageState extends State<PublishPage> {
     );
   }
 
-  Widget _buildImageThumb(_ImageEntry entry) {
+  /// 已有图片：展示 OSS 网络图，点击右上角删除。
+  Widget _buildExistingImageThumb(String url) {
+    return Stack(
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: Image.network(
+            url,
+            width: 80,
+            height: 80,
+            fit: BoxFit.cover,
+            errorBuilder: (_, _, _) => Container(
+              width: 80,
+              height: 80,
+              color: Colors.grey[200],
+              child: const Icon(Icons.broken_image, color: Colors.grey),
+            ),
+          ),
+        ),
+        Positioned(
+          right: 4,
+          top: 4,
+          child: GestureDetector(
+            onTap: () => setState(() => _existingImages.remove(url)),
+            child: Container(
+              width: 20,
+              height: 20,
+              decoration: const BoxDecoration(
+                color: Colors.black54,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.close, color: Colors.white, size: 14),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 新增图片：本地预览 + 上传状态遮罩。
+  Widget _buildNewImageThumb(_ImageEntry entry) {
     return Stack(
       children: [
         ClipRRect(
@@ -393,7 +464,7 @@ class _PublishPageState extends State<PublishPage> {
           right: 4,
           top: 4,
           child: GestureDetector(
-            onTap: () => setState(() => _images.remove(entry)),
+            onTap: () => setState(() => _newImages.remove(entry)),
             child: Container(
               width: 20,
               height: 20,
@@ -415,7 +486,7 @@ class _PublishPageState extends State<PublishPage> {
     if (picked == null || !mounted) return;
 
     final entry = _ImageEntry(localPath: picked.path, uploading: true);
-    setState(() => _images.add(entry));
+    setState(() => _newImages.add(entry));
 
     try {
       final url = await ApiService.uploadImage(picked.path);
@@ -533,33 +604,33 @@ class _PublishPageState extends State<PublishPage> {
     );
   }
 
-  // ------------------------------------------------------------ 发布
+  // ------------------------------------------------------------ 保存
 
-  /// 校验必填项，返回第一条错误提示；全部通过返回 null。
   String? _validate() {
     if (_nameCtrl.text.trim().isEmpty) return '请填写物品名称';
     if (_selectedCategory == null) return '请选择物品分类';
     if (_descCtrl.text.trim().isEmpty) return '请填写详细描述';
     if (_locationCtrl.text.trim().isEmpty) return '请填写丢失 / 拾取地点';
-    if (_images.any((e) => e.uploading)) return '图片正在上传，请稍候';
-    if (_images.any((e) => e.error != null)) return '有图片上传失败，请重试或删除';
+    if (_newImages.any((e) => e.uploading)) return '图片正在上传，请稍候';
+    if (_newImages.any((e) => e.error != null)) return '有图片上传失败，请重试或删除';
     return null;
   }
 
-  Future<void> _publish() async {
+  Future<void> _save() async {
     final error = _validate();
     if (error != null) {
-      _showFeedback('发布失败：$error', success: false);
+      _showFeedback('保存失败：$error', success: false);
       return;
     }
 
     final isLost = _mode == 0;
     final type = isLost ? ItemType.lost : ItemType.found;
-    final status = isLost ? ItemStatus.seeking : ItemStatus.pending;
+    // 编辑时保持原状态不变，避免误改业务状态（如已找回被改回寻找中）。
+    final status = widget.item.status;
 
     setState(() => _submitting = true);
     try {
-      await Future<void>.delayed(const Duration(milliseconds: 800));
+      await Future<void>.delayed(const Duration(milliseconds: 600));
       if (!mounted) return;
 
       final now = DateTime.now();
@@ -571,47 +642,52 @@ class _PublishPageState extends State<PublishPage> {
           : '${_selectedTime!.hour.toString().padLeft(2, '0')}:${_selectedTime!.minute.toString().padLeft(2, '0')}';
       final lostOrFoundTime = '$dateStr $timeStr';
 
-      final newItem = ItemModel(
-        id: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+      final allImages = <String>[
+        ..._existingImages,
+        ..._newImages.map((e) => e.ossUrl!).where((u) => u.isNotEmpty),
+      ];
+
+      final old = widget.item;
+      final updated = ItemModel(
+        id: old.id,
         type: type,
         title: _nameCtrl.text.trim(),
         status: status,
         categoryName: _selectedCategory!,
         location: _locationCtrl.text.trim(),
         summary: _descCtrl.text.trim(),
-        images: _images.map((e) => e.ossUrl!).where((u) => u.isNotEmpty).toList(),
+        images: allImages,
         lostOrFoundTime: lostOrFoundTime,
-        createdAt: '刚刚',
-        viewCount: 0,
-        claimCount: 0,
+        createdAt: old.createdAt,
+        viewCount: old.viewCount,
+        claimCount: old.claimCount,
         description: _descCtrl.text.trim(),
-        user: AppData.currentUser,
+        user: old.user,
       );
 
-      AppData.latestItems.insert(0, newItem);
-      AppData.myPublishedItems.insert(0, newItem);
+      // 同步更新本地数据源中对应 id 的条目。
+      _replaceInList(AppData.latestItems, updated);
+      _replaceInList(AppData.myPublishedItems, updated);
 
-      setState(() {
-        _submitting = false;
-        _mode = 0;
-        _selectedCategory = null;
-        _selectedDate = null;
-        _selectedTime = null;
-        _images.clear();
-        _nameCtrl.clear();
-        _descCtrl.clear();
-        _locationCtrl.text = '图书馆三楼自习区';
-      });
-      _showFeedback(isLost ? '发布成功，希望早日找回' : '发布成功，等待失主认领', success: true);
-      widget.onPublished?.call();
+      setState(() => _submitting = false);
+      _showFeedback('修改成功', success: true);
+      widget.onSaved?.call();
+      if (mounted) Navigator.of(context).pop(updated);
     } catch (e) {
       if (!mounted) return;
       setState(() => _submitting = false);
-      _showFeedback('发布失败：$e', success: false);
+      _showFeedback('保存失败：$e', success: false);
     }
   }
 
-  /// 成功 / 失败反馈：顶部浮层，用颜色和图标区分。
+  /// 按 id 替换列表中的条目，找不到则不处理。
+  void _replaceInList(List<ItemModel> list, ItemModel updated) {
+    final index = list.indexWhere((e) => e.id == updated.id);
+    if (index != -1) {
+      list[index] = updated;
+    }
+  }
+
   void _showFeedback(String message, {required bool success}) {
     success
         ? ToastUtil.success(context, message)

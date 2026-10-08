@@ -54,10 +54,7 @@ class _HomePageState extends State<HomePage> {
         children: [
           _buildHomeTab(),
           SearchPage(onBack: _goHome),
-          PublishPage(
-            onBack: _goHome,
-            onOpenMyPublish: () => setState(() => _currentIndex = 3),
-          ),
+          PublishPage(onBack: _goHome, onPublished: _goHome),
           MyPublishPage(
             onBack: _goHome,
             onAdd: () => setState(() => _currentIndex = 2),

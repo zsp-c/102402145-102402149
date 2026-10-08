@@ -31,3 +31,9 @@ build/
 
 ### VS Code ###
 .vscode/
+
+# 忽略本地开发配置文件
+application-dev.yml
+# 或者用 **/ 匹配任意目录层级
+**/application-dev.yml
+

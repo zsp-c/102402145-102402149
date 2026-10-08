@@ -1,5 +1,5 @@
 {
-  "openapi": "3.0.3",
+  "openapi": "3.0.1",
   "info": {
     "title": "校园失物招领平台 API",
     "description": "阳光大学 · 校园失物招领平台后端接口文档，基于 Spring Boot + MyBatis + MySQL + Redis 技术栈。",
@@ -9,59 +9,1218 @@
       "email": "dev@campus-lostfound.edu.cn"
     }
   },
-  "servers": [
-    {
-      "url": "http://localhost:8080/api",
-      "description": "本地开发环境"
-    },
-    {
-      "url": "http://test.campus-lostfound.edu.cn/api",
-      "description": "测试环境"
-    }
-  ],
   "tags": [
     {
-      "name": "鉴权模块",
-      "description": "用户登录、注册"
+      "name": "鉴权模块"
     },
     {
-      "name": "用户模块",
-      "description": "用户信息、关注关系"
+      "name": "用户模块"
     },
     {
-      "name": "分类模块",
-      "description": "物品分类管理"
+      "name": "分类模块"
     },
     {
-      "name": "物品模块",
-      "description": "失物招领信息的增删改查（核心）"
+      "name": "物品模块"
     },
     {
-      "name": "搜索模块",
-      "description": "搜索热词、搜索历史"
+      "name": "搜索模块"
     },
     {
-      "name": "文件上传",
-      "description": "图片上传"
+      "name": "文件上传"
     },
     {
-      "name": "统计模块",
-      "description": "首页数据统计"
+      "name": "统计模块"
     },
     {
-      "name": "消息模块",
-      "description": "认领联系、消息通知"
+      "name": "消息模块"
     }
   ],
-  "components": {
-    "securitySchemes": {
-      "BearerAuth": {
-        "type": "http",
-        "scheme": "bearer",
-        "bearerFormat": "JWT",
-        "description": "登录成功后获取 token，放入 Authorization: Bearer {token}"
+  "paths": {
+    "/login": {
+      "post": {
+        "summary": "用户登录",
+        "deprecated": false,
+        "description": "",
+        "operationId": "login",
+        "tags": [
+          "鉴权模块"
+        ],
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginDto"
+              },
+              "examples": {}
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "登录成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResponse"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/LoginVo"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "headers": {}
+          },
+          "401": {
+            "description": "学号或密码错误",
+            "headers": {}
+          }
+        },
+        "security": []
       }
     },
+    "/auth/register": {
+      "post": {
+        "summary": "用户注册",
+        "deprecated": false,
+        "description": "",
+        "operationId": "register",
+        "tags": [
+          "鉴权模块"
+        ],
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterDto"
+              },
+              "examples": {}
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "注册成功",
+            "headers": {}
+          },
+          "409": {
+            "description": "学号已被注册",
+            "headers": {}
+          }
+        },
+        "security": []
+      }
+    },
+    "/users/me": {
+      "get": {
+        "summary": "获取当前用户信息",
+        "deprecated": false,
+        "description": "",
+        "operationId": "getCurrentUser",
+        "tags": [
+          "用户模块"
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResponse"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/User"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "headers": {}
+          },
+          "401": {
+            "description": "未登录",
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/users/{userId}": {
+      "get": {
+        "summary": "获取指定用户公开信息",
+        "deprecated": false,
+        "description": "",
+        "operationId": "getUserById",
+        "tags": [
+          "用户模块"
+        ],
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "description": "用户 ID",
+            "required": true,
+            "example": "",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {}
+                }
+              }
+            },
+            "headers": {}
+          },
+          "404": {
+            "description": "用户不存在",
+            "headers": {}
+          }
+        },
+        "security": []
+      }
+    },
+    "/categories": {
+      "get": {
+        "summary": "获取所有物品分类",
+        "deprecated": false,
+        "description": "",
+        "operationId": "listCategories",
+        "tags": [
+          "分类模块"
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResponse"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {}
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": []
+      }
+    },
+    "/items": {
+      "post": {
+        "summary": "发布失物/招领信息",
+        "deprecated": false,
+        "description": "",
+        "operationId": "createItem",
+        "tags": [
+          "物品模块"
+        ],
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ItemDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "发布成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResponse"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "properties": {
+                            "itemId": {
+                              "type": "integer",
+                              "format": "int64",
+                              "example": 1001
+                            }
+                          }
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "headers": {}
+          },
+          "400": {
+            "description": "参数校验失败",
+            "headers": {}
+          },
+          "401": {
+            "description": "未登录",
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      },
+      "get": {
+        "summary": "获取最新信息列表（首页）",
+        "deprecated": false,
+        "description": "",
+        "operationId": "listItems",
+        "tags": [
+          "物品模块"
+        ],
+        "parameters": [
+          {
+            "name": "type",
+            "in": "query",
+            "description": "类型筛选，不传为全部",
+            "required": false,
+            "example": "",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "LOST",
+                "FOUND"
+              ]
+            }
+          },
+          {
+            "name": "categoryId",
+            "in": "query",
+            "description": "分类 ID 筛选",
+            "required": false,
+            "example": "",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "pageNum",
+            "in": "query",
+            "description": "",
+            "required": false,
+            "example": "",
+            "schema": {
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "description": "",
+            "required": false,
+            "example": "",
+            "schema": {
+              "type": "integer",
+              "default": 10
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResponse"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "allOf": [
+                            {
+                              "$ref": "#/components/schemas/PageResult"
+                            },
+                            {
+                              "properties": {
+                                "records": {
+                                  "type": "array",
+                                  "items": {
+                                    "$ref": "#/components/schemas/Item"
+                                  }
+                                }
+                              },
+                              "type": "object"
+                            }
+                          ]
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": []
+      }
+    },
+    "/items/{id}": {
+      "get": {
+        "summary": "获取信息详情",
+        "deprecated": false,
+        "description": "",
+        "operationId": "getItemDetail",
+        "tags": [
+          "物品模块"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "信息 ID",
+            "required": true,
+            "example": "",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResponse"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/ItemVo"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "headers": {}
+          },
+          "404": {
+            "description": "信息不存在",
+            "headers": {}
+          }
+        },
+        "security": []
+      },
+      "delete": {
+        "summary": "删除信息",
+        "deprecated": false,
+        "description": "只能删除自己发布的信息，已解决状态不允许删除。",
+        "operationId": "deleteItem",
+        "tags": [
+          "物品模块"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "信息 ID",
+            "required": true,
+            "example": "",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "删除成功",
+            "headers": {}
+          },
+          "403": {
+            "description": "无权限（非本人发布）",
+            "headers": {}
+          },
+          "409": {
+            "description": "已解决状态不可删除",
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/items/search": {
+      "get": {
+        "summary": "搜索信息",
+        "deprecated": false,
+        "description": "",
+        "operationId": "searchItems",
+        "tags": [
+          "物品模块"
+        ],
+        "parameters": [
+          {
+            "name": "keyword",
+            "in": "query",
+            "description": "搜索关键词（物品名称/地点/描述）",
+            "required": true,
+            "example": "",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "description": "",
+            "required": false,
+            "example": "",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "LOST",
+                "FOUND"
+              ]
+            }
+          },
+          {
+            "name": "categoryId",
+            "in": "query",
+            "description": "",
+            "required": false,
+            "example": "",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "pageNum",
+            "in": "query",
+            "description": "",
+            "required": false,
+            "example": "",
+            "schema": {
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "description": "",
+            "required": false,
+            "example": "",
+            "schema": {
+              "type": "integer",
+              "default": 10
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {}
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": []
+      }
+    },
+    "/items/{id}/resolve": {
+      "put": {
+        "summary": "标记已解决（已找回 / 已归还）",
+        "deprecated": false,
+        "description": "",
+        "operationId": "resolveItem",
+        "tags": [
+          "物品模块"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "信息 ID",
+            "required": true,
+            "example": "",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {}
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "操作成功",
+            "headers": {}
+          },
+          "403": {
+            "description": "无权限（非本人发布）",
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/items/my": {
+      "get": {
+        "summary": "获取我的发布列表",
+        "deprecated": false,
+        "description": "",
+        "operationId": "listMyItems",
+        "tags": [
+          "物品模块"
+        ],
+        "parameters": [
+          {
+            "name": "type",
+            "in": "query",
+            "description": "",
+            "required": false,
+            "example": "",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "LOST",
+                "FOUND"
+              ]
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "description": "",
+            "required": false,
+            "example": "",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "SEEKING",
+                "FOUND",
+                "PENDING",
+                "CLAIMED"
+              ]
+            }
+          },
+          {
+            "name": "pageNum",
+            "in": "query",
+            "description": "",
+            "required": false,
+            "example": "",
+            "schema": {
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "description": "",
+            "required": false,
+            "example": "",
+            "schema": {
+              "type": "integer",
+              "default": 10
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResponse"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "allOf": [
+                            {
+                              "$ref": "#/components/schemas/PageResult"
+                            },
+                            {
+                              "properties": {
+                                "records": {
+                                  "type": "array",
+                                  "items": {
+                                    "$ref": "#/components/schemas/Item"
+                                  }
+                                }
+                              },
+                              "type": "object"
+                            }
+                          ]
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/search/history": {
+      "get": {
+        "summary": "获取我的搜索历史",
+        "deprecated": false,
+        "description": "",
+        "operationId": "getSearchHistory",
+        "tags": [
+          "搜索模块"
+        ],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "返回数量",
+            "required": false,
+            "example": "",
+            "schema": {
+              "type": "integer",
+              "default": 10
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResponse"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          },
+                          "example": [
+                            "学生证",
+                            "操场",
+                            "充电线"
+                          ]
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      },
+      "delete": {
+        "summary": "清除搜索历史",
+        "deprecated": false,
+        "description": "",
+        "operationId": "clearSearchHistory",
+        "tags": [
+          "搜索模块"
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "清除成功",
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/upload/image": {
+      "post": {
+        "summary": "上传图片",
+        "deprecated": false,
+        "description": "",
+        "operationId": "uploadImage",
+        "tags": [
+          "文件上传"
+        ],
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "图片文件，支持 jpg/png/webp，单张 ≤ 5MB",
+                    "example": ""
+                  }
+                },
+                "required": [
+                  "file"
+                ]
+              },
+              "example": {
+                "file": ""
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "上传成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResponse"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "string",
+                          "description": "阿里云 OSS 图片访问 URL",
+                          "example": "https://campus-lostfound.oss-cn-shenzhen.aliyuncs.com/2026/09/27/1727395200000_abcd.jpg"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "headers": {}
+          },
+          "400": {
+            "description": "文件格式不支持或超过大小限制",
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/stats/home": {
+      "get": {
+        "summary": "首页顶部统计数据",
+        "deprecated": false,
+        "description": "",
+        "operationId": "getHomeStats",
+        "tags": [
+          "统计模块"
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResponse"
+                    },
+                    {
+                      "properties": {
+                        "data": {}
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": []
+      }
+    },
+    "/claims": {
+      "get": {
+        "summary": "认领消息列表",
+        "deprecated": false,
+        "description": "当前用户作为发送方或接收方的所有认领联系、系统通知，按时间倒序分页返回。用于打开通知页时拉取历史消息（含离线期间收到的）。服务端通过 senderId / receiverId 与 BaseContext.getCurrentId() 比对过滤，前端根据 senderId 是否等于当前用户 id 判断消息方向（IN/OUT）。",
+        "operationId": "listClaims",
+        "tags": [
+          "消息模块"
+        ],
+        "parameters": [
+          {
+            "name": "pageNum",
+            "in": "query",
+            "description": "页码，从 1 开始",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "description": "每页条数",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResponse"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/PageResult"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "summary": "发送认领联系",
+        "deprecated": false,
+        "description": "详情页「联系 TA」调用。senderId 不由前端传入，由服务端从 JWT 拦截器设置的 BaseContext.getCurrentId() 读取，避免伪造身份。receiverId 由 itemId 关联查询 item.userId 得到。系统生成一条 Claim 记录入库，并通过 SSE 实时推送给在线的接收方。",
+        "operationId": "sendClaim",
+        "tags": [
+          "消息模块"
+        ],
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClaimDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "发送成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResponse"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/ClaimVo"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/claims/unread-count": {
+      "get": {
+        "summary": "未读消息数",
+        "deprecated": false,
+        "description": "返回当前用户未读认领消息总数（receiverId = 当前用户 AND readStatus = 0），用于首页铃铛角标展示。",
+        "operationId": "getUnreadCount",
+        "tags": [
+          "消息模块"
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResponse"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "integer",
+                          "description": "未读消息数",
+                          "example": 3
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/claims/{claimId}/read": {
+      "put": {
+        "summary": "标记单条已读",
+        "deprecated": false,
+        "description": "将指定 claimId 的认领消息 readStatus 置为 1。",
+        "operationId": "markClaimRead",
+        "tags": [
+          "消息模块"
+        ],
+        "parameters": [
+          {
+            "name": "claimId",
+            "in": "path",
+            "description": "认领消息 id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/claims/read-all": {
+      "put": {
+        "summary": "全部标记已读",
+        "deprecated": false,
+        "description": "将当前用户作为接收方的所有未读消息 readStatus 置为 1。",
+        "operationId": "markAllRead",
+        "tags": [
+          "消息模块"
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/claims/stream": {
+      "get": {
+        "summary": "SSE 实时消息推送",
+        "deprecated": false,
+        "description": "Server-Sent Events 长连接端点。用户登录后建立持久连接，服务端通过该连接实时推送给当前用户（receiverId = BaseContext.getCurrentId()）的新认领消息。\n\n- 响应 Content-Type: text/event-stream\n- 事件格式：`data: {ClaimVo JSON}\\n\\n`\n- 服务端维护 Map<userId, SseEmitter>，连接建立时注册，断开/超时时移除\n- 离线期间的消息已落库（claim 表 readStatus=0），前端打开通知页时通过 GET /claims 拉取历史\n- 前端需处理自动重连（SSE 原生支持 Last-Event-ID）",
+        "operationId": "claimStream",
+        "tags": [
+          "消息模块"
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "SSE 长连接建立成功，持续推送 text/event-stream 数据",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string",
+                  "description": "SSE 事件流，每条事件的 data 字段为 ClaimVo 的 JSON"
+                }
+              }
+            },
+            "headers": {
+              "Content-Type": {
+                "description": "固定为 text/event-stream",
+                "schema": {
+                  "type": "string",
+                  "example": "text/event-stream"
+                }
+              },
+              "Cache-Control": {
+                "description": "no-cache",
+                "schema": {
+                  "type": "string",
+                  "example": "no-cache"
+                }
+              },
+              "Connection": {
+                "description": "keep-alive",
+                "schema": {
+                  "type": "string",
+                  "example": "keep-alive"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    }
+  },
+  "components": {
     "schemas": {
       "ApiResponse": {
         "type": "object",
@@ -69,22 +1228,16 @@
         "properties": {
           "code": {
             "type": "integer",
-            "description": "业务状态码，200 表示成功",
-            "example": 200
+            "description": "业务状态码，1 表示成功，0 表示失败",
+            "example": 1
           },
-          "message": {
+          "msg": {
             "type": "string",
             "description": "提示信息",
             "example": "success"
           },
           "data": {
             "description": "业务数据"
-          },
-          "timestamp": {
-            "type": "integer",
-            "format": "int64",
-            "description": "服务器时间戳（毫秒）",
-            "example": 1728316800000
           }
         }
       },
@@ -95,7 +1248,8 @@
           "records": {
             "type": "array",
             "items": {
-              "type": "object"
+              "type": "object",
+              "properties": {}
             }
           },
           "total": {
@@ -116,7 +1270,7 @@
           }
         }
       },
-      "LoginRequest": {
+      "LoginDto": {
         "type": "object",
         "required": [
           "studentId",
@@ -135,7 +1289,7 @@
           }
         }
       },
-      "LoginData": {
+      "LoginVo": {
         "type": "object",
         "properties": {
           "token": {
@@ -143,18 +1297,20 @@
             "example": "eyJhbGciOi..."
           },
           "user": {
-            "$ref": "#/components/schemas/UserInfo"
+            "$ref": "#/components/schemas/User"
           }
         }
       },
-      "RegisterRequest": {
+      "RegisterDto": {
         "type": "object",
+        "description": "注册请求体，对应后端 com.zsp.campus.dto.RegisterDto",
         "required": [
           "studentId",
           "password",
           "nickname",
           "college",
-          "grade"
+          "grade",
+          "phone"
         ],
         "properties": {
           "studentId": {
@@ -182,90 +1338,94 @@
             "type": "string",
             "description": "年级",
             "example": "大二"
+          },
+          "phone": {
+            "type": "string",
+            "description": "手机号",
+            "example": "13800138000"
+          },
+          "avatar": {
+            "type": "string",
+            "description": "头像 url（可选，注册时可不传）"
           }
         }
       },
-      "UserInfo": {
+      "User": {
         "type": "object",
+        "description": "用户信息，对应后端 com.zsp.campus.entity.User",
         "properties": {
-          "id": {
+          "userId": {
             "type": "integer",
+            "format": "int64",
+            "description": "用户 id",
             "example": 1
           },
           "studentId": {
             "type": "string",
-            "description": "脱敏学号",
-            "example": "2024****37"
+            "description": "学号",
+            "example": "202402145"
           },
           "nickname": {
             "type": "string",
+            "description": "昵称",
             "example": "林小满"
           },
           "avatar": {
             "type": "string",
+            "description": "头像 url",
             "example": "https://cdn.example.com/avatar/linxiaoman.jpg"
           },
           "college": {
             "type": "string",
+            "description": "学院",
             "example": "信电学院"
           },
           "grade": {
             "type": "string",
+            "description": "年级，如「大二」",
             "example": "大二"
           },
-          "joinedDays": {
-            "type": "integer",
-            "example": 213
+          "phone": {
+            "type": "string",
+            "description": "手机号",
+            "example": "138****6621"
           },
-          "totalPublished": {
+          "totalPublish": {
             "type": "integer",
+            "description": "累计发布数",
             "example": 7
           },
-          "totalOngoing": {
+          "totalCompleted": {
             "type": "integer",
-            "example": 4
-          },
-          "totalResolved": {
-            "type": "integer",
+            "description": "累计已找回/已归还数",
             "example": 3
           },
-          "helpedCount": {
+          "status": {
             "type": "integer",
-            "description": "已帮助人数",
-            "example": 5
-          }
-        }
-      },
-      "Category": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "integer",
+            "description": "账号状态：1-正常 0-禁用",
             "example": 1
           },
-          "name": {
+          "createTime": {
             "type": "string",
-            "example": "数码电子"
+            "format": "date-time",
+            "description": "注册时间"
           },
-          "icon": {
+          "updateTime": {
             "type": "string",
-            "example": "laptop"
-          },
-          "color": {
-            "type": "string",
-            "example": "#D6F5E8"
+            "format": "date-time",
+            "description": "更新时间"
           }
         }
       },
-      "CreateItemRequest": {
+      "ItemDto": {
         "type": "object",
         "required": [
           "type",
-          "title",
-          "categoryId",
+          "name",
+          "category",
           "description",
           "location",
-          "lostOrFoundTime"
+          "findOrLostTime"
         ],
         "properties": {
           "type": {
@@ -277,16 +1437,16 @@
             ],
             "example": "FOUND"
           },
-          "title": {
+          "name": {
             "type": "string",
             "maxLength": 50,
-            "description": "物品名称/标题",
+            "description": "物品名称",
             "example": "黑色 AirPods Pro 充电盒"
           },
-          "categoryId": {
-            "type": "integer",
-            "description": "分类 ID",
-            "example": 2
+          "category": {
+            "type": "string",
+            "description": "物品分类名称，固定 8 类",
+            "example": "数码电子"
           },
           "description": {
             "type": "string",
@@ -299,7 +1459,7 @@
             "description": "丢失/拾取地点",
             "example": "图书馆三楼自习区"
           },
-          "lostOrFoundTime": {
+          "findOrLostTime": {
             "type": "string",
             "format": "date-time",
             "description": "丢失/拾取时间",
@@ -311,1403 +1471,223 @@
             "items": {
               "type": "string"
             },
-            "description": "图片 URL 列表",
+            "description": "图片 URL 列表（需先调用 /upload/image 上传获得）",
             "example": [
-              "https://cdn.example.com/upload/img1.jpg"
+              "https://campus-lostfound.oss-cn-shenzhen.aliyuncs.com/2026/09/27/xxx.jpg"
             ]
           }
         }
       },
-      "ItemDetail": {
+      "ItemVo": {
         "type": "object",
+        "description": "物品详情，对应后端 ItemVo",
         "properties": {
-          "id": {
+          "itemId": {
             "type": "integer",
+            "format": "int64",
             "example": 1001
           },
           "type": {
             "type": "string",
-            "enum": [
-              "LOST",
-              "FOUND"
-            ],
+            "enum": ["LOST", "FOUND"],
             "example": "FOUND"
-          },
-          "typeLabel": {
-            "type": "string",
-            "example": "招领信息"
-          },
-          "title": {
-            "type": "string",
-            "example": "黑色 AirPods Pro 充电盒，图书馆三楼捡到"
           },
           "status": {
             "type": "string",
-            "description": "状态：SEEKING-寻找中, FOUND-已找回, PENDING-待认领, CLAIMED-已归还",
-            "enum": [
-              "SEEKING",
-              "FOUND",
-              "PENDING",
-              "CLAIMED"
-            ],
+            "enum": ["SEEKING", "PENDING", "FOUND", "CLAIMED"],
             "example": "PENDING"
           },
-          "statusLabel": {
+          "name": {
             "type": "string",
-            "example": "待认领"
-          },
-          "category": {
-            "$ref": "#/components/schemas/Category"
-          },
-          "location": {
-            "type": "string",
-            "example": "图书馆三楼自习"
-          },
-          "lostOrFoundTime": {
-            "type": "string",
-            "example": "2026-09-27 09:20:00"
+            "example": "黑色 AirPods Pro 充电盒"
           },
           "description": {
             "type": "string",
             "example": "今天上午在图书馆三楼靠窗自习区整理桌面时..."
           },
-          "images": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
+          "category": {
+            "type": "string",
+            "example": "数码电子"
+          },
+          "location": {
+            "type": "string",
+            "example": "图书馆三楼自习区"
+          },
+          "image": {
+            "type": "string",
+            "description": "封面图 URL",
+            "example": "https://campus-lostfound.oss-cn-shenzhen.aliyuncs.com/xxx.jpg"
           },
           "viewCount": {
             "type": "integer",
             "example": 268
           },
-          "createdAt": {
+          "findOrLostTime": {
             "type": "string",
             "example": "2026-09-27 09:20:00"
           },
-          "publisher": {
-            "$ref": "#/components/schemas/PublisherInfo"
+          "createTime": {
+            "type": "string",
+            "example": "2026-09-27 09:20:00"
+          },
+          "user": {
+            "$ref": "#/components/schemas/User",
+            "description": "发布者信息"
           }
         }
       },
-      "PublisherInfo": {
+      "Item": {
         "type": "object",
-        "description": "发布者简要信息",
+        "description": "列表项（首页/搜索/我的发布共用），对应后端 Item 实体",
         "properties": {
-          "id": {
+          "itemId": {
             "type": "integer",
-            "example": 1
-          },
-          "nickname": {
-            "type": "string",
-            "example": "林小满"
-          },
-          "avatar": {
-            "type": "string",
-            "example": "https://cdn.example.com/avatar/linxiaoman.jpg"
-          },
-          "college": {
-            "type": "string",
-            "example": "信电学院"
-          },
-          "grade": {
-            "type": "string",
-            "example": "大二"
-          },
-          "followed": {
-            "type": "boolean",
-            "description": "当前用户是否已关注",
-            "example": false
-          },
-          "totalPublished": {
-            "type": "integer",
-            "example": 7
-          },
-          "helpedCount": {
-            "type": "integer",
-            "example": 5
-          }
-        }
-      },
-      "ItemListItem": {
-        "type": "object",
-        "description": "列表项（首页/搜索/我的发布共用）",
-        "properties": {
-          "id": {
-            "type": "integer",
+            "format": "int64",
             "example": 1001
           },
           "type": {
             "type": "string",
+            "enum": ["LOST", "FOUND"],
             "example": "FOUND"
           },
-          "typeLabel": {
+          "name": {
             "type": "string",
-            "example": "招领"
-          },
-          "title": {
-            "type": "string",
+            "description": "物品名称",
             "example": "黑色 AirPods Pro 充电盒"
           },
           "status": {
             "type": "string",
+            "description": "状态：SEEKING-寻找中, PENDING-待认领, FOUND-已找回, CLAIMED-已归还",
+            "enum": ["SEEKING", "PENDING", "FOUND", "CLAIMED"],
             "example": "PENDING"
           },
-          "statusLabel": {
+          "category": {
             "type": "string",
-            "example": "待认领"
-          },
-          "categoryName": {
-            "type": "string",
+            "description": "分类名称",
             "example": "数码电子"
           },
           "location": {
             "type": "string",
             "example": "图书馆 3F 自习区"
           },
-          "summary": {
+          "description": {
             "type": "string",
             "description": "描述摘要",
             "example": "外壳有透明保护套..."
           },
           "image": {
             "type": "string",
-            "example": "https://cdn.example.com/upload/img1.jpg"
-          },
-          "lostOrFoundTime": {
-            "type": "string",
-            "example": "2026-09-27 09:20:00"
-          },
-          "createdAt": {
-            "type": "string",
-            "example": "2026-09-27 09:20:00"
+            "description": "封面图 URL",
+            "example": "https://campus-lostfound.oss-cn-shenzhen.aliyuncs.com/xxx.jpg"
           },
           "viewCount": {
             "type": "integer",
-            "example": 26
+            "example": 268
           },
-          "claimCount": {
-            "type": "integer",
-            "description": "认领线索数（我的发布）",
-            "example": 5
-          }
-        }
-      },
-      "ResolveItemRequest": {
-        "type": "object",
-        "required": [
-          "resolveType"
-        ],
-        "properties": {
-          "resolveType": {
+          "findOrLostTime": {
             "type": "string",
-            "description": "FOUND_BACK-寻物启事标记已找回, RETURNED-招领启事标记已归还",
-            "enum": [
-              "FOUND_BACK",
-              "RETURNED"
-            ],
-            "example": "FOUND_BACK"
-          }
-        }
-      },
-      "HotWord": {
-        "type": "object",
-        "properties": {
-          "word": {
+            "example": "2026-09-27 09:20:00"
+          },
+          "createTime": {
             "type": "string",
-            "example": "耳机"
-          },
-          "heat": {
-            "type": "integer",
-            "example": 999
-          },
-          "icon": {
-            "type": "string",
-            "example": "🎧"
+            "example": "2026-09-27 09:20:00"
           }
         }
       },
-      "UploadResult": {
+      "ClaimVo": {
         "type": "object",
+        "description": "认领消息视图对象。列表接口和 SSE 推送均返回此结构。对应后端 Claim 实体，额外关联查询物品名称和收发双方 User 信息。前端根据 senderId 是否等于当前登录用户 id 判断消息方向（IN/OUT），对方信息取 sender 或 receiver。",
         "properties": {
-          "url": {
-            "type": "string",
-            "example": "https://cdn.example.com/upload/2026/09/27/xxxxx.jpg"
-          },
-          "width": {
+          "claimId": {
             "type": "integer",
-            "example": 1080
-          },
-          "height": {
-            "type": "integer",
-            "example": 1080
-          }
-        }
-      },
-      "HomeStats": {
-        "type": "object",
-        "properties": {
-          "totalItems": {
-            "type": "integer",
-            "description": "累计发布信息总数",
-            "example": 1560
-          },
-          "helpedCount": {
-            "type": "integer",
-            "description": "累计帮助人数",
-            "example": 830
-          },
-          "todayNew": {
-            "type": "integer",
-            "description": "今日新增数量",
-            "example": 12
-          }
-        }
-      },
-      "ContactRequest": {
-        "type": "object",
-        "required": [
-          "message"
-        ],
-        "properties": {
-          "message": {
-            "type": "string",
-            "maxLength": 100,
-            "description": "附言：物品特征或线索描述",
-            "example": "透明保护套左上角那道划痕我这边能对上"
-          }
-        }
-      },
-      "Notification": {
-        "type": "object",
-        "description": "认领联系 / 系统通知。联系双方各生成一条：接收方 direction=IN，发送方 direction=OUT。",
-        "properties": {
-          "id": {
-            "type": "integer",
+            "format": "int64",
+            "description": "认领消息 id",
             "example": 9001
-          },
-          "type": {
-            "type": "string",
-            "enum": [
-              "CONTACT",
-              "SYSTEM"
-            ],
-            "description": "CONTACT-认领/线索联系, SYSTEM-系统通知",
-            "example": "CONTACT"
-          },
-          "direction": {
-            "type": "string",
-            "enum": [
-              "IN",
-              "OUT"
-            ],
-            "description": "IN-收到, OUT-发出",
-            "example": "IN"
           },
           "itemId": {
             "type": "integer",
-            "example": 101
+            "format": "int64",
+            "description": "关联物品 id",
+            "example": 501
           },
-          "itemTitle": {
+          "itemName": {
             "type": "string",
+            "description": "关联物品名称（关联 item.name）",
             "example": "黑色 AirPods Pro 充电盒"
           },
-          "peerNickname": {
-            "type": "string",
-            "description": "对端用户昵称",
-            "example": "陈昊"
+          "senderId": {
+            "type": "integer",
+            "format": "int64",
+            "description": "发送者 id（认领 / 提供线索的人）",
+            "example": 2
           },
-          "peerCollege": {
-            "type": "string",
-            "example": "机械学院"
+          "sender": {
+            "$ref": "#/components/schemas/User",
+            "description": "发送者信息（含昵称、学院、年级、学号、手机号）"
           },
-          "peerGrade": {
-            "type": "string",
-            "example": "大三"
+          "receiverId": {
+            "type": "integer",
+            "format": "int64",
+            "description": "接收者 id（物品发布者），SSE 按此字段路由",
+            "example": 1
           },
-          "peerStudentId": {
-            "type": "string",
-            "description": "对端脱敏学号",
-            "example": "2023****18"
+          "receiver": {
+            "$ref": "#/components/schemas/User",
+            "description": "接收者信息"
           },
-          "message": {
+          "msgType": {
             "type": "string",
-            "example": "同学你好，我上周在图书馆丢过一个同款，方便核对一下吗"
+            "description": "消息类型：CONTACT-认领联系, SYSTEM-系统通知",
+            "enum": ["CONTACT", "SYSTEM"],
+            "example": "CONTACT"
           },
-          "read": {
-            "type": "boolean",
-            "example": false
-          },
-          "createdAt": {
+          "claimContent": {
             "type": "string",
-            "example": "2026-10-03 10:12:00"
+            "description": "消息内容",
+            "example": "你好，我在图书馆三楼捡到一个类似的耳机盒。"
+          },
+          "readStatus": {
+            "type": "integer",
+            "description": "已读状态：0-未读, 1-已读",
+            "enum": [0, 1],
+            "example": 0
+          },
+          "createTime": {
+            "type": "string",
+            "description": "发送时间",
+            "example": "2026-10-08 14:32:00"
           }
         }
+      },
+      "ClaimDto": {
+        "type": "object",
+        "description": "发送认领消息请求体。senderId 不在 DTO 中，由服务端从 BaseContext.getCurrentId() 读取；receiverId 由 itemId 关联 item.userId 得到。",
+        "properties": {
+          "itemId": {
+            "type": "integer",
+            "format": "int64",
+            "description": "要联系的物品 id",
+            "example": 501
+          },
+          "claimContent": {
+            "type": "string",
+            "description": "消息内容（可选）",
+            "example": "你好，我在图书馆三楼捡到一个类似的耳机盒。"
+          }
+        },
+        "required": ["itemId"]
+      }
+    },
+    "responses": {},
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "登录成功后获取 token，放入 Authorization: Bearer {token}"
       }
     }
   },
-  "paths": {
-    "/auth/login": {
-      "post": {
-        "tags": [
-          "鉴权模块"
-        ],
-        "summary": "用户登录",
-        "operationId": "login",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/LoginRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "登录成功",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/ApiResponse"
-                    },
-                    {
-                      "properties": {
-                        "data": {
-                          "$ref": "#/components/schemas/LoginData"
-                        }
-                      }
-                    }
-                  ]
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "学号或密码错误"
-          }
-        }
-      }
-    },
-    "/auth/register": {
-      "post": {
-        "tags": [
-          "鉴权模块"
-        ],
-        "summary": "用户注册",
-        "operationId": "register",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/RegisterRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "注册成功"
-          },
-          "409": {
-            "description": "学号已被注册"
-          }
-        }
-      }
-    },
-    "/users/me": {
-      "get": {
-        "tags": [
-          "用户模块"
-        ],
-        "summary": "获取当前用户信息",
-        "operationId": "getCurrentUser",
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "成功",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/ApiResponse"
-                    },
-                    {
-                      "properties": {
-                        "data": {
-                          "$ref": "#/components/schemas/UserInfo"
-                        }
-                      }
-                    }
-                  ]
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "未登录"
-          }
-        }
-      }
-    },
-    "/users/{userId}": {
-      "get": {
-        "tags": [
-          "用户模块"
-        ],
-        "summary": "获取指定用户公开信息",
-        "operationId": "getUserById",
-        "parameters": [
-          {
-            "name": "userId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer"
-            },
-            "description": "用户 ID"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "成功",
-            "content": {
-              "application/json": {}
-            }
-          },
-          "404": {
-            "description": "用户不存在"
-          }
-        }
-      }
-    },
-    "/users/{userId}/follow": {
-      "post": {
-        "tags": [
-          "用户模块"
-        ],
-        "summary": "关注用户",
-        "operationId": "followUser",
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "userId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer"
-            },
-            "description": "目标用户 ID"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "关注成功"
-          },
-          "400": {
-            "description": "不能关注自己"
-          },
-          "409": {
-            "description": "已关注"
-          }
-        }
-      },
-      "delete": {
-        "tags": [
-          "用户模块"
-        ],
-        "summary": "取消关注",
-        "operationId": "unfollowUser",
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "userId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer"
-            },
-            "description": "目标用户 ID"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "取消成功"
-          }
-        }
-      }
-    },
-    "/users/{userId}/follow/status": {
-      "get": {
-        "tags": [
-          "用户模块"
-        ],
-        "summary": "检查关注状态",
-        "operationId": "checkFollowStatus",
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "userId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer"
-            },
-            "description": "目标用户 ID"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "成功",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/ApiResponse"
-                    },
-                    {
-                      "properties": {
-                        "data": {
-                          "type": "object",
-                          "properties": {
-                            "followed": {
-                              "type": "boolean",
-                              "example": true
-                            }
-                          }
-                        }
-                      }
-                    }
-                  ]
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/categories": {
-      "get": {
-        "tags": [
-          "分类模块"
-        ],
-        "summary": "获取所有物品分类",
-        "operationId": "listCategories",
-        "responses": {
-          "200": {
-            "description": "成功",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/ApiResponse"
-                    },
-                    {
-                      "properties": {
-                        "data": {
-                          "type": "array",
-                          "items": {
-                            "$ref": "#/components/schemas/Category"
-                          }
-                        }
-                      }
-                    }
-                  ]
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/items": {
-      "post": {
-        "tags": [
-          "物品模块"
-        ],
-        "summary": "发布失物/招领信息",
-        "operationId": "createItem",
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateItemRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "发布成功",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/ApiResponse"
-                    },
-                    {
-                      "properties": {
-                        "data": {
-                          "type": "object",
-                          "properties": {
-                            "id": {
-                              "type": "integer",
-                              "example": 1001
-                            }
-                          }
-                        }
-                      }
-                    }
-                  ]
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "参数校验失败"
-          },
-          "401": {
-            "description": "未登录"
-          }
-        }
-      },
-      "get": {
-        "tags": [
-          "物品模块"
-        ],
-        "summary": "获取最新信息列表（首页）",
-        "operationId": "listItems",
-        "parameters": [
-          {
-            "name": "type",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "enum": [
-                "LOST",
-                "FOUND"
-              ]
-            },
-            "description": "类型筛选，不传为全部"
-          },
-          {
-            "name": "categoryId",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer"
-            },
-            "description": "分类 ID 筛选"
-          },
-          {
-            "name": "pageNum",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "default": 1
-            }
-          },
-          {
-            "name": "pageSize",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "default": 10
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "成功",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/ApiResponse"
-                    },
-                    {
-                      "properties": {
-                        "data": {
-                          "allOf": [
-                            {
-                              "$ref": "#/components/schemas/PageResult"
-                            },
-                            {
-                              "properties": {
-                                "records": {
-                                  "type": "array",
-                                  "items": {
-                                    "$ref": "#/components/schemas/ItemListItem"
-                                  }
-                                }
-                              }
-                            }
-                          ]
-                        }
-                      }
-                    }
-                  ]
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/items/{id}": {
-      "get": {
-        "tags": [
-          "物品模块"
-        ],
-        "summary": "获取信息详情",
-        "operationId": "getItemDetail",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer"
-            },
-            "description": "信息 ID"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "成功",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/ApiResponse"
-                    },
-                    {
-                      "properties": {
-                        "data": {
-                          "$ref": "#/components/schemas/ItemDetail"
-                        }
-                      }
-                    }
-                  ]
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "信息不存在"
-          }
-        }
-      },
-      "delete": {
-        "tags": [
-          "物品模块"
-        ],
-        "summary": "删除信息",
-        "operationId": "deleteItem",
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer"
-            },
-            "description": "信息 ID"
-          }
-        ],
-        "description": "只能删除自己发布的信息，已解决状态不允许删除。",
-        "responses": {
-          "200": {
-            "description": "删除成功"
-          },
-          "403": {
-            "description": "无权限（非本人发布）"
-          },
-          "409": {
-            "description": "已解决状态不可删除"
-          }
-        }
-      }
-    },
-    "/items/search": {
-      "get": {
-        "tags": [
-          "物品模块"
-        ],
-        "summary": "搜索信息",
-        "operationId": "searchItems",
-        "parameters": [
-          {
-            "name": "keyword",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string"
-            },
-            "description": "搜索关键词（物品名称/地点/描述）"
-          },
-          {
-            "name": "type",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "enum": [
-                "LOST",
-                "FOUND"
-              ]
-            }
-          },
-          {
-            "name": "categoryId",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer"
-            }
-          },
-          {
-            "name": "pageNum",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "default": 1
-            }
-          },
-          {
-            "name": "pageSize",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "default": 10
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "成功",
-            "content": {
-              "application/json": {}
-            }
-          }
-        }
-      }
-    },
-    "/items/{id}/resolve": {
-      "put": {
-        "tags": [
-          "物品模块"
-        ],
-        "summary": "标记已解决（已找回 / 已归还）",
-        "operationId": "resolveItem",
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer"
-            },
-            "description": "信息 ID"
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ResolveItemRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "操作成功"
-          },
-          "403": {
-            "description": "无权限（非本人发布）"
-          }
-        }
-      }
-    },
-    "/items/my": {
-      "get": {
-        "tags": [
-          "物品模块"
-        ],
-        "summary": "获取我的发布列表",
-        "operationId": "listMyItems",
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "type",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "enum": [
-                "LOST",
-                "FOUND"
-              ]
-            }
-          },
-          {
-            "name": "status",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "enum": [
-                "SEEKING",
-                "FOUND",
-                "PENDING",
-                "CLAIMED"
-              ]
-            }
-          },
-          {
-            "name": "pageNum",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "default": 1
-            }
-          },
-          {
-            "name": "pageSize",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "default": 10
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "成功",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/ApiResponse"
-                    },
-                    {
-                      "properties": {
-                        "data": {
-                          "allOf": [
-                            {
-                              "$ref": "#/components/schemas/PageResult"
-                            },
-                            {
-                              "properties": {
-                                "records": {
-                                  "type": "array",
-                                  "items": {
-                                    "$ref": "#/components/schemas/ItemListItem"
-                                  }
-                                }
-                              }
-                            }
-                          ]
-                        }
-                      }
-                    }
-                  ]
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/search/hot-words": {
-      "get": {
-        "tags": [
-          "搜索模块"
-        ],
-        "summary": "获取热门搜索词",
-        "operationId": "getHotWords",
-        "parameters": [
-          {
-            "name": "limit",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "default": 8
-            },
-            "description": "返回数量"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "成功",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/ApiResponse"
-                    },
-                    {
-                      "properties": {
-                        "data": {
-                          "type": "array",
-                          "items": {
-                            "$ref": "#/components/schemas/HotWord"
-                          }
-                        }
-                      }
-                    }
-                  ]
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/search/history": {
-      "get": {
-        "tags": [
-          "搜索模块"
-        ],
-        "summary": "获取我的搜索历史",
-        "operationId": "getSearchHistory",
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "limit",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "default": 10
-            },
-            "description": "返回数量"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "成功",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/ApiResponse"
-                    },
-                    {
-                      "properties": {
-                        "data": {
-                          "type": "array",
-                          "items": {
-                            "type": "string"
-                          },
-                          "example": [
-                            "学生证",
-                            "操场",
-                            "充电线"
-                          ]
-                        }
-                      }
-                    }
-                  ]
-                }
-              }
-            }
-          }
-        }
-      },
-      "delete": {
-        "tags": [
-          "搜索模块"
-        ],
-        "summary": "清除搜索历史",
-        "operationId": "clearSearchHistory",
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "清除成功"
-          }
-        }
-      }
-    },
-    "/upload/image": {
-      "post": {
-        "tags": [
-          "文件上传"
-        ],
-        "summary": "上传图片",
-        "operationId": "uploadImage",
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "multipart/form-data": {
-              "schema": {
-                "type": "object",
-                "required": [
-                  "file"
-                ],
-                "properties": {
-                  "file": {
-                    "type": "string",
-                    "format": "binary",
-                    "description": "图片文件，支持 jpg/png/webp，单张 ≤ 5MB"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "上传成功",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/ApiResponse"
-                    },
-                    {
-                      "properties": {
-                        "data": {
-                          "$ref": "#/components/schemas/UploadResult"
-                        }
-                      }
-                    }
-                  ]
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "文件格式不支持或超过大小限制"
-          }
-        }
-      }
-    },
-    "/stats/home": {
-      "get": {
-        "tags": [
-          "统计模块"
-        ],
-        "summary": "首页顶部统计数据",
-        "operationId": "getHomeStats",
-        "responses": {
-          "200": {
-            "description": "成功",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/ApiResponse"
-                    },
-                    {
-                      "properties": {
-                        "data": {
-                          "$ref": "#/components/schemas/HomeStats"
-                        }
-                      }
-                    }
-                  ]
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/items/{id}/contact": {
-      "tags": [
-        "物品模块"
-      ],
-      "summary": "联系发布者（发送自身信息）",
-      "description": "向信息发布者发起认领／线索联系。服务端从登录态取当前用户资料（昵称、学院、年级、脱敏学号），连同附言一起送达对方，双方各生成一条 Notification。",
-      "operationId": "contactPublisher",
-      "security": [
-        {
-          "BearerAuth": []
-        }
-      ],
-      "parameters": [
-        {
-          "name": "id",
-          "in": "path",
-          "required": true,
-          "schema": {
-            "type": "integer"
-          },
-          "description": "信息 ID"
-        }
-      ],
-      "requestBody": {
-        "required": true,
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/ContactRequest"
-            }
-          }
-        }
-      },
-      "responses": {
-        "200": {
-          "description": "发送成功",
-          "content": {
-            "application/json": {
-              "schema": {
-                "allOf": [
-                  {
-                    "$ref": "#/components/schemas/ApiResponse"
-                  },
-                  {
-                    "properties": {
-                      "data": {
-                        "$ref": "#/components/schemas/Notification"
-                      }
-                    }
-                  }
-                ]
-              }
-            }
-          }
-        },
-        "400": {
-          "description": "不能联系自己发布的信息"
-        }
-      }
-    },
-    "/notifications": {
-      "get": {
-        "tags": [
-          "消息模块"
-        ],
-        "summary": "消息通知列表",
-        "description": "当前用户收到和发出的认领联系、系统通知，按时间倒序。",
-        "operationId": "listNotifications",
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "pageNum",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "default": 1
-            }
-          },
-          {
-            "name": "pageSize",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "default": 20
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "成功",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/ApiResponse"
-                    },
-                    {
-                      "properties": {
-                        "data": {
-                          "type": "array",
-                          "items": {
-                            "$ref": "#/components/schemas/Notification"
-                          }
-                        }
-                      }
-                    }
-                  ]
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-  }
+  "servers": [],
+  "security": []
 }

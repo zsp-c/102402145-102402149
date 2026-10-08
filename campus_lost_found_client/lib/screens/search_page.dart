@@ -86,49 +86,6 @@ class _SearchPageState extends State<SearchPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
-              children: const [
-                Icon(Icons.local_fire_department, color: Color(0xFFFF7A2E), size: 22),
-                SizedBox(width: 6),
-                Text('大家都在',
-                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: Color(0xFF1F2937))),
-                Spacer(),
-                Text('近 7 天热词', style: TextStyle(fontSize: 12, color: Colors.grey)),
-              ],
-            ),
-            const SizedBox(height: 14),
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: AppData.hotWords.map((h) {
-                final active = h.word == '耳机';
-                return GestureDetector(
-                  onTap: () {
-                    _controller.text = h.word;
-                    setState(() {});
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: active ? const Color(0xFFFFE8DD) : Colors.white,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: active ? const Color(0xFFFF7A2E) : const Color(0xFFE5E7EB),
-                      ),
-                    ),
-                    child: Text(
-                      '${h.word} ${h.icon}',
-                      style: TextStyle(
-                        color: active ? const Color(0xFFFF7A2E) : const Color(0xFF374151),
-                        fontSize: 14,
-                        fontWeight: active ? FontWeight.w600 : FontWeight.normal,
-                      ),
-                    ),
-                  ),
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: 28),
-            Row(
               children: [
                 const Icon(Icons.history, color: Color(0xFF2DB8A3), size: 20),
                 const SizedBox(width: 6),

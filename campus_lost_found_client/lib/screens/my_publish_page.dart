@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../data/app_data.dart';
 import '../models/item_model.dart';
+import '../utils/toast_util.dart';
 import 'detail_page.dart';
 
 class MyPublishPage extends StatefulWidget {
@@ -161,11 +162,11 @@ class _MyPublishPageState extends State<MyPublishPage> {
   Widget _buildStatRow(UserModel user) {
     return Row(
       children: [
-        Expanded(child: _buildStatTile('${user.totalPublished}', '累计发布', const Color(0xFFFF7A2E), const Color(0xFFFFF1E8))),
+        Expanded(child: _buildStatTile('${user.totalPublish}', '累计发布', const Color(0xFFFF7A2E), const Color(0xFFFFF1E8))),
         const SizedBox(width: 10),
         Expanded(child: _buildStatTile('${user.totalOngoing}', '进行中', const Color(0xFF2DB8A3), const Color(0xFFE8F8F5))),
         const SizedBox(width: 10),
-        Expanded(child: _buildStatTile('${user.totalResolved}', '已找回', const Color(0xFF4B5563), const Color(0xFFF3F4F6))),
+        Expanded(child: _buildStatTile('${user.totalCompleted}', '已找回', const Color(0xFF4B5563), const Color(0xFFF3F4F6))),
       ],
     );
   }
@@ -237,9 +238,7 @@ class _MyPublishPageState extends State<MyPublishPage> {
   }
 
   void _toast(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), duration: const Duration(seconds: 2)),
-    );
+    ToastUtil.info(context, message);
   }
 
   Widget _buildPublishCard(ItemModel item) {
