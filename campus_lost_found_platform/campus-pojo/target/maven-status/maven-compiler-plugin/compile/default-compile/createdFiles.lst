@@ -1,9 +1,12 @@
 com\zsp\campus\entity\ItemImage.class
 com\zsp\campus\vo\LoginVo$LoginVoBuilder.class
 com\zsp\campus\vo\ItemVo.class
+com\zsp\campus\dto\SearchHistoryDto.class
+com\zsp\campus\entity\SearchHistory.class
 com\zsp\campus\entity\User.class
 com\zsp\campus\dto\RegisterDto.class
 com\zsp\campus\dto\ItemDto.class
+com\zsp\campus\vo\ClaimVo.class
 com\zsp\campus\entity\Item.class
 com\zsp\campus\entity\Claim.class
 com\zsp\campus\vo\LoginVo.class
