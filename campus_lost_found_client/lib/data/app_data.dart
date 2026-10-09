@@ -174,7 +174,8 @@ class AppData {
 
   /// `GET /users/me` —— 当前登录用户。
   /// 登录成功后由 AuthService 覆盖为后端返回的真实用户。
-  static UserModel currentUser = UserModel(
+  /// 使用 ValueNotifier 以便资料修改后各页面自动刷新。
+  static final ValueNotifier<UserModel> currentUser = ValueNotifier(UserModel(
     userId: 1,
     studentId: '2024****37',
     nickname: '林小满',
@@ -183,11 +184,10 @@ class AppData {
     phone: '138****6621',
     joinedDays: 213,
     totalPublish: 7,
-    totalOngoing: 4,
     totalCompleted: 3,
     helpedCount: 5,
     followed: true,
-  );
+  ));
 
   /// `GET /users/{userId}` —— 详情页发布者对应的完整用户资料。
   static final UserModel otherUser = UserModel(
@@ -199,7 +199,6 @@ class AppData {
     phone: '159****3308',
     joinedDays: 428,
     totalPublish: 12,
-    totalOngoing: 3,
     totalCompleted: 9,
     helpedCount: 21,
     followed: false,

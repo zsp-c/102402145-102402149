@@ -625,14 +625,9 @@ class _EditItemPageState extends State<EditItemPage> {
 
     final isLost = _mode == 0;
     final type = isLost ? ItemType.lost : ItemType.found;
-    // 编辑时保持原状态不变，避免误改业务状态（如已找回被改回寻找中）。
-    final status = widget.item.status;
 
     setState(() => _submitting = true);
     try {
-      await Future<void>.delayed(const Duration(milliseconds: 600));
-      if (!mounted) return;
-
       final now = DateTime.now();
       final dateStr = _selectedDate == null
           ? '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}'
@@ -640,32 +635,35 @@ class _EditItemPageState extends State<EditItemPage> {
       final timeStr = _selectedTime == null
           ? '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}'
           : '${_selectedTime!.hour.toString().padLeft(2, '0')}:${_selectedTime!.minute.toString().padLeft(2, '0')}';
-      final lostOrFoundTime = '$dateStr $timeStr';
+      final findOrLostTime = '$dateStr $timeStr';
 
       final allImages = <String>[
         ..._existingImages,
         ..._newImages.map((e) => e.ossUrl!).where((u) => u.isNotEmpty),
       ];
 
-      final old = widget.item;
-      final updated = ItemModel(
-        id: old.id,
+      final resp = await ApiService.updateItem(
+        id: widget.item.id,
         type: type,
-        title: _nameCtrl.text.trim(),
-        status: status,
-        categoryName: _selectedCategory!,
-        location: _locationCtrl.text.trim(),
-        summary: _descCtrl.text.trim(),
-        images: allImages,
-        lostOrFoundTime: lostOrFoundTime,
-        createdAt: old.createdAt,
-        viewCount: old.viewCount,
-        claimCount: old.claimCount,
+        name: _nameCtrl.text.trim(),
+        category: _selectedCategory!,
         description: _descCtrl.text.trim(),
-        user: old.user,
+        location: _locationCtrl.text.trim(),
+        findOrLostTime: findOrLostTime,
+        images: allImages,
       );
 
-      // 同步更新本地数据源中对应 id 的条目。
+      if (!mounted) return;
+
+      if (!resp.success) {
+        setState(() => _submitting = false);
+        _showFeedback(resp.msg.isEmpty ? '保存失败' : resp.msg, success: false);
+        return;
+      }
+
+      final updated = resp.data ?? widget.item;
+
+      // 同步更新本地缓存中对应 id 的条目。
       _replaceInList(AppData.latestItems, updated);
       _replaceInList(AppData.myPublishedItems, updated);
 

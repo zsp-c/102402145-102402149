@@ -121,12 +121,98 @@ class ItemModel {
   Color get typeBgColor => ItemType.bgColorOf(type);
   bool get isFound => type == ItemType.found;
 
+  /// 是否已解决：寻物 FOUND（已找回）/ 招领 CLAIMED（已归还）。
+  bool get isResolved => status == ItemStatus.found || status == ItemStatus.claimed;
+
   /// 列表卡片用的封面图。
   String get coverImage => images.isNotEmpty ? images.first : '';
 
   /// 详情页正文；详情缺失时回退到摘要。
   String get fullDescription =>
       (description == null || description!.isEmpty) ? summary : description!;
+
+  /// 生成一个部分字段更新的副本，详情页标记解决后用于本地刷新。
+  ItemModel copyWith({
+    int? id,
+    String? type,
+    String? title,
+    String? status,
+    String? categoryName,
+    String? location,
+    String? summary,
+    List<String>? images,
+    String? lostOrFoundTime,
+    String? createdAt,
+    int? viewCount,
+    int? claimCount,
+    String? description,
+    UserModel? user,
+  }) {
+    return ItemModel(
+      id: id ?? this.id,
+      type: type ?? this.type,
+      title: title ?? this.title,
+      status: status ?? this.status,
+      categoryName: categoryName ?? this.categoryName,
+      location: location ?? this.location,
+      summary: summary ?? this.summary,
+      images: images ?? this.images,
+      lostOrFoundTime: lostOrFoundTime ?? this.lostOrFoundTime,
+      createdAt: createdAt ?? this.createdAt,
+      viewCount: viewCount ?? this.viewCount,
+      claimCount: claimCount ?? this.claimCount,
+      description: description ?? this.description,
+      user: user ?? this.user,
+    );
+  }
+
+  /// 从后端 `Item` / `ItemVo` JSON 反序列化。
+  /// 字段映射：itemId→id, name→title, category→categoryName,
+  /// description→summary, image(s)→images, findOrLostTime→lostOrFoundTime,
+  /// createTime→createdAt, user→user（仅详情接口返回）。
+  factory ItemModel.fromJson(Map<String, dynamic> json) {
+    List<String> images = [];
+    final imgList = json['images'];
+    if (imgList is List) {
+      images = imgList.map((e) => e.toString()).toList();
+    } else {
+      final single = json['image'];
+      if (single != null && single.toString().isNotEmpty) {
+        images = [single.toString()];
+      }
+    }
+    return ItemModel(
+      id: (json['itemId'] as num?)?.toInt() ?? 0,
+      type: json['type'] as String? ?? ItemType.found,
+      title: json['name'] as String? ?? '',
+      status: json['status'] as String? ?? ItemStatus.seeking,
+      categoryName: json['category'] as String? ?? '',
+      location: json['location'] as String? ?? '',
+      summary: json['description'] as String? ?? '',
+      images: images,
+      lostOrFoundTime: json['findOrLostTime'] as String? ?? '',
+      createdAt: json['createTime'] as String? ?? '',
+      viewCount: (json['viewCount'] as num?)?.toInt() ?? 0,
+      claimCount: (json['claimCount'] as num?)?.toInt() ?? 0,
+      description: json['description'] as String?,
+      user: json['user'] != null
+          ? UserModel.fromJson(json['user'] as Map<String, dynamic>)
+          : null,
+    );
+  }
+
+  /// 序列化为后端 `ItemDto`，用于 `POST /items` 发布信息。
+  Map<String, dynamic> toJson() {
+    return {
+      'type': type,
+      'name': title,
+      'category': categoryName,
+      'description': summary,
+      'location': location,
+      'findOrLostTime': lostOrFoundTime,
+      'images': images,
+    };
+  }
 }
 
 /// 用户信息，对应后端 com.zsp.campus.entity.User。
@@ -145,7 +231,6 @@ class UserModel {
 
   // ---- 以下为前端扩展字段，后端 User 实体未提供，mock 数据使用 ----
   final int joinedDays;
-  final int totalOngoing;
   final int helpedCount;
   final bool followed;
 
@@ -161,13 +246,24 @@ class UserModel {
     this.totalCompleted = 0,
     this.status,
     this.joinedDays = 0,
-    this.totalOngoing = 0,
     this.helpedCount = 0,
     this.followed = false,
   });
 
+  /// 进行中 = 累计发布 - 已找回。
+  int get totalOngoing => totalPublish - totalCompleted;
+
   /// 头像占位用的首字。
   String get avatarText => nickname.isEmpty ? '?' : nickname[0];
+
+  /// 是否有可用的头像 URL（排除空串、null 字面量等无效值）。
+  bool get hasAvatar {
+    if (avatar.isEmpty) return false;
+    final lower = avatar.trim().toLowerCase();
+    if (lower == 'null' || lower == 'none') return false;
+    if (!lower.startsWith('http')) return false;
+    return true;
+  }
 
   /// 从后端 User JSON 反序列化，字段名一一对应，无需转换。
   factory UserModel.fromJson(Map<String, dynamic> json) {
@@ -182,6 +278,38 @@ class UserModel {
       totalPublish: (json['totalPublish'] as num?)?.toInt() ?? 0,
       totalCompleted: (json['totalCompleted'] as num?)?.toInt() ?? 0,
       status: (json['status'] as num?)?.toInt(),
+    );
+  }
+
+  UserModel copyWith({
+    int? userId,
+    String? studentId,
+    String? nickname,
+    String? avatar,
+    String? college,
+    String? grade,
+    String? phone,
+    int? totalPublish,
+    int? totalCompleted,
+    int? status,
+    int? joinedDays,
+    int? helpedCount,
+    bool? followed,
+  }) {
+    return UserModel(
+      userId: userId ?? this.userId,
+      studentId: studentId ?? this.studentId,
+      nickname: nickname ?? this.nickname,
+      avatar: avatar ?? this.avatar,
+      college: college ?? this.college,
+      grade: grade ?? this.grade,
+      phone: phone ?? this.phone,
+      totalPublish: totalPublish ?? this.totalPublish,
+      totalCompleted: totalCompleted ?? this.totalCompleted,
+      status: status ?? this.status,
+      joinedDays: joinedDays ?? this.joinedDays,
+      helpedCount: helpedCount ?? this.helpedCount,
+      followed: followed ?? this.followed,
     );
   }
 }

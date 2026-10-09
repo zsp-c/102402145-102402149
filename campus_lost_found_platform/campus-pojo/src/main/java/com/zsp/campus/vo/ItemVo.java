@@ -6,11 +6,12 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * 物品查询回显 vo
  *
- * <p>字段与 item 表一致，另带一份发布者信息（关联查询得到）。
+ * <p>字段与 item 表一致，另带一份发布者信息（关联查询得到）和完整图片列表。
  * 注意：User 里有手机号和学号，如果不想让前端看到，后续应换成只含
  * 昵称 / 学院 / 年级的 PublisherVo。
  */
@@ -41,6 +42,9 @@ public class ItemVo {
 
     /** 封面图 url */
     private String image;
+
+    /** 完整图片列表（列表页只含封面，详情页含全部） */
+    private List<String> images;
 
     /** 浏览量 */
     private Integer viewCount;

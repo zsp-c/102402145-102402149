@@ -4,6 +4,7 @@ import 'screens/login_page.dart';
 import 'screens/home_page.dart';
 
 void main() {
+  ApiConfig.token = '';
   runApp(const CampusLostFoundApp());
 }
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../data/app_data.dart';
 import '../models/item_model.dart';
+import '../services/api_service.dart';
 import 'search_page.dart';
 import 'publish_page.dart';
 import 'my_publish_page.dart';
@@ -22,8 +23,65 @@ class _HomePageState extends State<HomePage> {
   static const List<String> _latestTabLabels = ['全部', '招领', '寻物'];
   static const List<String?> _latestTabTypes = [null, ItemType.found, ItemType.lost];
 
+  List<ItemModel> _items = [];
+  bool _loading = true;
+  String? _error;
+
+  final GlobalKey<MyPublishPageState> _myPublishKey = GlobalKey();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadItems();
+  }
+
+  /// 从后端拉取最新信息列表，根据当前 Tab 筛选 type。
+  Future<void> _loadItems() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final type = _latestTabTypes[_latestTab];
+      final resp = await ApiService.getItems(type: type, pageSize: 20);
+      if (!resp.success) {
+        setState(() => _error = resp.msg.isEmpty ? '加载失败' : resp.msg);
+        return;
+      }
+      if (mounted) {
+        setState(() {
+          _items = resp.data?.records ?? [];
+          _loading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _error = e.toString();
+          _loading = false;
+        });
+      }
+    }
+  }
+
   /// 底部栏返回首页。
   void _goHome() => setState(() => _currentIndex = 0);
+
+  /// 切换底部 Tab，切到「我的发布」时刷新数据。
+  void _switchTab(int index) {
+    setState(() => _currentIndex = index);
+    if (index == 3) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _myPublishKey.currentState?.refresh();
+      });
+    }
+  }
+
+  /// 发布成功后刷新「我的发布」并切回首页。
+  void _onPublished() {
+    _myPublishKey.currentState?.refresh();
+    _goHome();
+  }
 
   /// 打开消息通知页；返回后刷新未读红点。
   Future<void> _openNotifications() async {
@@ -38,8 +96,7 @@ class _HomePageState extends State<HomePage> {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => UserProfilePage(
-          user: AppData.currentUser,
-          items: AppData.myPublishedItems,
+          user: AppData.currentUser.value,
           isSelf: true,
         ),
       ),
@@ -54,8 +111,9 @@ class _HomePageState extends State<HomePage> {
         children: [
           _buildHomeTab(),
           SearchPage(onBack: _goHome),
-          PublishPage(onBack: _goHome, onPublished: _goHome),
+          PublishPage(onBack: _goHome, onPublished: _onPublished),
           MyPublishPage(
+            key: _myPublishKey,
             onBack: _goHome,
             onAdd: () => setState(() => _currentIndex = 2),
             onOpenProfile: _openMyProfile,
@@ -97,7 +155,7 @@ class _HomePageState extends State<HomePage> {
   Widget _buildNavItem(int index, IconData icon, String label) {
     final active = _currentIndex == index;
     return InkWell(
-      onTap: () => setState(() => _currentIndex = index),
+      onTap: () => _switchTab(index),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -237,10 +295,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildLatestSection() {
-    final type = _latestTabTypes[_latestTab];
-    final items = type == null
-        ? AppData.latestItems
-        : AppData.latestItems.where((item) => item.type == type).toList();
+    final items = _items;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
@@ -267,7 +322,14 @@ class _HomePageState extends State<HomePage> {
             ],
           ),
           const SizedBox(height: 12),
-          if (items.isEmpty)
+          if (_loading)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 48),
+              child: CircularProgressIndicator(color: Color(0xFFFF7A2E)),
+            )
+          else if (_error != null)
+            _buildErrorView()
+          else if (items.isEmpty)
             Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 48),
@@ -293,10 +355,41 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  Widget _buildErrorView() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 48),
+      child: Column(
+        children: [
+          const Icon(Icons.error_outline, size: 52, color: Color(0xFFFF7A2E)),
+          const SizedBox(height: 10),
+          Text(_error ?? '加载失败',
+              style: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 14)),
+          const SizedBox(height: 12),
+          GestureDetector(
+            onTap: _loadItems,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFF7A2E),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: const Text('重试', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildLatestTab(int index, String label) {
     final active = _latestTab == index;
     return GestureDetector(
-      onTap: () => setState(() => _latestTab = index),
+      onTap: () {
+        if (_latestTab == index) return;
+        setState(() => _latestTab = index);
+        _loadItems();
+      },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
         decoration: BoxDecoration(

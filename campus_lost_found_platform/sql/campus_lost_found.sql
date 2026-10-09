@@ -120,4 +120,4 @@ CREATE TABLE `claim`
 
 -- 默认测试账号：学号 00000，密码 123456（BCrypt 哈希）
 INSERT INTO `user` (`user_id`, `student_id`, `password`, `nickname`, `avatar`, `phone`, `college`, `grade`, `total_publish`, `total_completed`, `status`)
-VALUES (1, '00000', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', '测试用户', '', '13800138000', '计算机学院', '大三', 0, 0, 1);
+VALUES (1, '00000', '$2a$10$qtNs5GPYV2SJGTkgUokOLeFVfNQrIR.Eqn8lOKEE.XwCF9CzSHi5C', '测试用户', '', '13800138000', '计算机学院', '大三', 0, 0, 1);
