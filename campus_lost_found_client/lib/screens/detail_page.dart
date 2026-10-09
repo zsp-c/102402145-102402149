@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../data/app_data.dart';
 import '../models/item_model.dart';
 import '../services/api_service.dart';
+import '../services/notification_api.dart';
 import '../utils/toast_util.dart';
 import 'edit_item_page.dart';
 import 'user_profile_page.dart';
@@ -691,8 +692,9 @@ class _DetailPageState extends State<DetailPage> {
     }
   }
 
-  /// 对应接口文档 `POST /items/{id}/contact`：
-  /// 请求体只带附言，「自身信息」由服务端从 token 中取，随消息一起发给对方。
+  /// 对应接口文档「消息模块 · 发送认领联系」`POST /claims`：
+  /// 请求体只带物品 id 与附言；发送者身份由服务端从 token 取，
+  /// 接收者由服务端按物品发布者推导——前端两边都传不了，避免伪造身份 / 收件人。
   Future<void> _onContact() async {
     final peer = item.user;
     final me = AppData.currentUser.value;
@@ -771,26 +773,22 @@ class _DetailPageState extends State<DetailPage> {
     messageCtrl.dispose();
     if (confirmed != true) return;
 
-    AppData.notifications.insert(
-      0,
-      NotificationModel(
-        id: DateTime.now().millisecondsSinceEpoch % 1000000,
-        type: NotificationType.contact,
-        direction: NotificationDirection.outgoing,
+    // 走后端 `POST /claims`：消息落库后出现在双方的消息页里（对方未读、红点亮起）。
+    // 之前这里只往本地 AppData 塞了一条假记录，消息页拉取时自然看不到。
+    try {
+      final resp = await NotificationApi.sendClaim(
         itemId: item.id,
-        itemTitle: item.title,
-        peerNickname: peer?.nickname ?? '发布者',
-        peerCollege: peer?.college ?? '',
-        peerGrade: peer?.grade ?? '',
-        peerPhone: peer?.phone ?? '',
-        message: message.isEmpty ? '想和你核对一下这件物品的信息。' : message,
-        read: true,
-        createdAt: '刚刚',
-      ),
-    );
-
-    if (!mounted) return;
-    setState(() {});
-    _toast('已把你的资料发送给 ${peer?.nickname ?? '发布者'}');
+        currentUserId: me.userId,
+        content: message.isEmpty ? '想和你核对一下这件物品的信息。' : message,
+      );
+      if (!mounted) return;
+      if (resp.success) {
+        _toast('已把你的资料发送给 ${peer?.nickname ?? '发布者'}');
+      } else {
+        _toast(resp.msg.isEmpty ? '发送失败' : resp.msg);
+      }
+    } catch (e) {
+      if (mounted) _toast('网络异常：$e');
+    }
   }
 }
