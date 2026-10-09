@@ -380,15 +380,33 @@ class _DetailPageState extends State<DetailPage> {
     );
   }
 
-  void _openPublisherProfile(UserModel user) {
-    // 发布者是本人的话，展示自己的完整资料。
+  /// 打开发布者资料。
+  /// 别人的资料走 `GET /users/{userId}` 拉真实数据——原先这里不管点谁都拿写死的
+  /// `AppData.otherUser`，等于展示的是同一个人；本人的直接用登录时拿到的资料。
+  Future<void> _openPublisherProfile(UserModel user) async {
     final isSelf = user.userId == AppData.currentUser.value.userId;
+    if (isSelf) {
+      _pushProfile(AppData.currentUser.value, isSelf: true);
+      return;
+    }
+    try {
+      final resp = await ApiService.getUserById(user.userId);
+      if (!mounted) return;
+      final fetched = resp.data;
+      if (!resp.success || fetched == null) {
+        _toast(resp.msg.isEmpty ? '加载用户资料失败' : resp.msg);
+        return;
+      }
+      _pushProfile(fetched, isSelf: false);
+    } catch (e) {
+      if (mounted) _toast('网络异常：$e');
+    }
+  }
+
+  void _pushProfile(UserModel user, {required bool isSelf}) {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => UserProfilePage(
-          user: isSelf ? AppData.currentUser.value : AppData.otherUser,
-          isSelf: isSelf,
-        ),
+        builder: (_) => UserProfilePage(user: user, isSelf: isSelf),
       ),
     );
   }

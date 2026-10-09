@@ -27,7 +27,7 @@ class _ImageEntry {
 /// - 表单字段用原物品数据预填充；
 /// - 已有图片直接展示 OSS URL，可删除；
 /// - 新增图片走 OSS 上传，成功后才计入保存；
-/// - 保存时用新字段替换 `AppData` 中对应 id 的条目（保留 id / 浏览量 / 发布者等不可编辑字段）。
+/// - 保存时调 `PUT /items/{id}` 提交，成功后由调用方（详情页 / 列表页）重新拉取刷新。
 class EditItemPage extends StatefulWidget {
   final ItemModel item;
 
@@ -46,6 +46,10 @@ class _EditItemPageState extends State<EditItemPage> {
   bool _submitting = false;
   DateTime? _selectedDate;
   TimeOfDay? _selectedTime;
+
+  /// 分类列表，走 `GET /categories` 拉取（原先直接读本地 AppData.categories）。
+  List<String> _categories = [];
+  bool _categoriesLoading = true;
 
   /// 原物品已有的图片（OSS URL），可删除。
   late List<String> _existingImages;
@@ -68,6 +72,29 @@ class _EditItemPageState extends State<EditItemPage> {
     _locationCtrl.text = item.location;
     _existingImages = List<String>.from(item.images);
     _parseLostOrFoundTime(item.lostOrFoundTime);
+    _loadCategories();
+  }
+
+  /// 拉取物品分类列表，失败时回退本地默认分类（与发布页保持一致）。
+  Future<void> _loadCategories() async {
+    try {
+      final resp = await ApiService.getCategories();
+      if (resp.success && resp.data != null && resp.data!.isNotEmpty) {
+        if (mounted) {
+          setState(() {
+            _categories = resp.data!;
+            _categoriesLoading = false;
+          });
+        }
+        return;
+      }
+    } catch (_) {}
+    if (mounted) {
+      setState(() {
+        _categories = AppData.categories.map((c) => c.name).toList();
+        _categoriesLoading = false;
+      });
+    }
   }
 
   /// 解析 `lostOrFoundTime`，兼容 `yyyy-MM-dd HH:mm` 与「今天/昨天/前天 HH:mm」两种常见格式。
@@ -298,32 +325,41 @@ class _EditItemPageState extends State<EditItemPage> {
           const Text('物品分类 *',
               style: TextStyle(fontSize: 14, color: Color(0xFF374151), fontWeight: FontWeight.w500)),
           const SizedBox(height: 10),
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: AppData.categories.map((c) {
-              final active = _selectedCategory == c.name;
-              return GestureDetector(
-                onTap: () => setState(() => _selectedCategory = c.name),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
-                  decoration: BoxDecoration(
-                    color: active ? const Color(0xFFFFE8DD) : const Color(0xFFF7F8FA),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: active ? const Color(0xFFFF7A2E) : Colors.transparent,
-                    ),
+          _categoriesLoading
+              ? const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 8),
+                  child: SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFFF7A2E)),
                   ),
-                  child: Text(c.name,
-                      style: TextStyle(
-                        color: active ? const Color(0xFFFF7A2E) : const Color(0xFF4B5563),
-                        fontSize: 14,
-                        fontWeight: active ? FontWeight.w600 : FontWeight.normal,
-                      )),
+                )
+              : Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: _categories.map((name) {
+                    final active = _selectedCategory == name;
+                    return GestureDetector(
+                      onTap: () => setState(() => _selectedCategory = name),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+                        decoration: BoxDecoration(
+                          color: active ? const Color(0xFFFFE8DD) : const Color(0xFFF7F8FA),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: active ? const Color(0xFFFF7A2E) : Colors.transparent,
+                          ),
+                        ),
+                        child: Text(name,
+                            style: TextStyle(
+                              color: active ? const Color(0xFFFF7A2E) : const Color(0xFF4B5563),
+                              fontSize: 14,
+                              fontWeight: active ? FontWeight.w600 : FontWeight.normal,
+                            )),
+                      ),
+                    );
+                  }).toList(),
                 ),
-              );
-            }).toList(),
-          ),
           const SizedBox(height: 18),
           const Text('详细描述 *',
               style: TextStyle(fontSize: 14, color: Color(0xFF374151), fontWeight: FontWeight.w500)),
@@ -663,10 +699,6 @@ class _EditItemPageState extends State<EditItemPage> {
 
       final updated = resp.data ?? widget.item;
 
-      // 同步更新本地缓存中对应 id 的条目。
-      _replaceInList(AppData.latestItems, updated);
-      _replaceInList(AppData.myPublishedItems, updated);
-
       setState(() => _submitting = false);
       _showFeedback('修改成功', success: true);
       widget.onSaved?.call();
@@ -675,14 +707,6 @@ class _EditItemPageState extends State<EditItemPage> {
       if (!mounted) return;
       setState(() => _submitting = false);
       _showFeedback('保存失败：$e', success: false);
-    }
-  }
-
-  /// 按 id 替换列表中的条目，找不到则不处理。
-  void _replaceInList(List<ItemModel> list, ItemModel updated) {
-    final index = list.indexWhere((e) => e.id == updated.id);
-    if (index != -1) {
-      list[index] = updated;
     }
   }
 
