@@ -132,6 +132,25 @@ class NotificationApi {
     );
     return _parse<void>(resp.body, null);
   }
+
+  /// `DELETE /claims/read` —— 删除当前用户所有已读消息（收到的已读 + 发出的全部）。
+  /// 返回删除的条数。
+  static Future<ApiResponse<int>> deleteRead() async {
+    final resp = await http.delete(
+      Uri.parse('${ApiConfig.baseUrl}/claims/read'),
+      headers: _headers(json: false),
+    );
+    return _parse<int>(resp.body, (d) => (d as num?)?.toInt() ?? 0);
+  }
+
+  /// `DELETE /claims/{claimId}` —— 删除单条消息。
+  static Future<ApiResponse<void>> deleteOne(int claimId) async {
+    final resp = await http.delete(
+      Uri.parse('${ApiConfig.baseUrl}/claims/$claimId'),
+      headers: _headers(json: false),
+    );
+    return _parse<void>(resp.body, null);
+  }
 }
 
 /// SSE 实时消息连接。

@@ -8,10 +8,14 @@ import 'detail_page.dart';
 class MyPublishPage extends StatefulWidget {
   const MyPublishPage({
     super.key,
+    this.refreshTrigger,
     this.onBack,
     this.onAdd,
     this.onOpenProfile,
   });
+
+  /// 由 HomePage 注入：值变化时触发列表刷新（替代 GlobalKey，避免 element reparenting）。
+  final ValueNotifier<int>? refreshTrigger;
 
   /// 由 HomePage 注入：作为底部栏 Tab 内嵌时没有可 pop 的路由，
   /// 返回箭头需要切回首页。
@@ -41,10 +45,28 @@ class MyPublishPageState extends State<MyPublishPage> {
   void initState() {
     super.initState();
     _loadItems();
+    widget.refreshTrigger?.addListener(_onRefreshTriggered);
   }
 
-  /// 对外暴露的刷新方法：切回「我的发布」tab 或发布成功后由 HomePage 调用。
-  Future<void> refresh() => _loadItems();
+  @override
+  void didUpdateWidget(covariant MyPublishPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.refreshTrigger != widget.refreshTrigger) {
+      oldWidget.refreshTrigger?.removeListener(_onRefreshTriggered);
+      widget.refreshTrigger?.addListener(_onRefreshTriggered);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.refreshTrigger?.removeListener(_onRefreshTriggered);
+    super.dispose();
+  }
+
+  /// 外部刷新触发器回调。
+  void _onRefreshTriggered() {
+    if (mounted) _loadItems();
+  }
 
   /// 从后端拉取我的发布列表（不带筛选，本地按 Tab 过滤以支持计数）。
   Future<void> _loadItems() async {
@@ -363,9 +385,11 @@ class MyPublishPageState extends State<MyPublishPage> {
         setState(() {
           _items = _items.map((e) => e.id == item.id ? e.copyWith(status: newStatus) : e).toList();
         });
-        // 已找回/已归还数 +1
-        final u = AppData.currentUser.value;
-        AppData.currentUser.value = u.copyWith(totalCompleted: u.totalCompleted + 1);
+        // 已找回/已归还数 +1（延迟到帧结束，避免与 setState 构建冲突）
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          final u = AppData.currentUser.value;
+          AppData.currentUser.value = u.copyWith(totalCompleted: u.totalCompleted + 1);
+        });
       } else {
         _toast(resp.msg.isEmpty ? '操作失败' : resp.msg);
       }
@@ -398,9 +422,11 @@ class MyPublishPageState extends State<MyPublishPage> {
       if (resp.success) {
         _toast('已删除');
         setState(() => _items = _items.where((e) => e.id != item.id).toList());
-        // 累计发布数 -1
-        final u = AppData.currentUser.value;
-        AppData.currentUser.value = u.copyWith(totalPublish: u.totalPublish - 1);
+        // 累计发布数 -1（延迟到帧结束，避免与 setState 构建冲突）
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          final u = AppData.currentUser.value;
+          AppData.currentUser.value = u.copyWith(totalPublish: u.totalPublish - 1);
+        });
       } else {
         _toast(resp.msg.isEmpty ? '删除失败' : resp.msg);
       }

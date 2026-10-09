@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -93,6 +94,28 @@ public class ClaimController {
     public ApiResponse<Void> readAll() {
         log.info("全部标记已读");
         claimService.markAllRead();
+        return ApiResponse.success();
+    }
+
+    /**
+     * 删除已读消息：删除当前用户所有已读消息（收到的已读 + 发出的全部）。
+     */
+    @DeleteMapping("/read")
+    @Operation(summary = "删除已读消息")
+    public ApiResponse<Integer> deleteRead() {
+        log.info("删除已读消息");
+        int rows = claimService.deleteRead();
+        return ApiResponse.success(rows);
+    }
+
+    /**
+     * 删除单条消息。
+     */
+    @DeleteMapping("/{claimId}")
+    @Operation(summary = "删除单条消息")
+    public ApiResponse<Void> deleteOne(@PathVariable Long claimId) {
+        log.info("删除单条消息，claimId={}", claimId);
+        claimService.deleteOne(claimId);
         return ApiResponse.success();
     }
 

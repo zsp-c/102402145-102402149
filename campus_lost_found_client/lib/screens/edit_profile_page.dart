@@ -71,11 +71,15 @@ class _EditProfilePageState extends State<EditProfilePage> {
         grade: grade,
       );
       if (resp.success && resp.data != null) {
-        AppData.currentUser.value = resp.data!;
         widget.onSaved?.call();
         if (mounted) {
           Navigator.of(context).pop(true);
         }
+        // 延迟到帧结束后更新，避免与路由 pop 同一帧导致
+        // InheritedWidget deactivate 时依赖未清理（_dependents.isEmpty 断言）。
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          AppData.currentUser.value = resp.data!;
+        });
       } else {
         _showToast(resp.msg.isEmpty ? '保存失败' : resp.msg);
       }

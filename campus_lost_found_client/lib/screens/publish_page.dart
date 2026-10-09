@@ -638,9 +638,13 @@ class _PublishPageState extends State<PublishPage> {
         _descCtrl.clear();
         _locationCtrl.text = '图书馆三楼自习区';
       });
-      // 更新当前用户累计发布数
-      final u = AppData.currentUser.value;
-      AppData.currentUser.value = u.copyWith(totalPublish: u.totalPublish + 1);
+      // 取消输入框焦点，避免在手势处理阶段重建导致断言
+      FocusScope.of(context).unfocus();
+      // 更新当前用户累计发布数（延迟到帧结束，避免与 setState 构建冲突）
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final u = AppData.currentUser.value;
+        AppData.currentUser.value = u.copyWith(totalPublish: u.totalPublish + 1);
+      });
       _showFeedback(isLost ? '发布成功，希望早日找回' : '发布成功，等待失主认领', success: true);
       widget.onPublished?.call();
     } catch (e) {

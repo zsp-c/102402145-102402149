@@ -31,13 +31,22 @@ class _HomePageState extends State<HomePage> {
   /// 未读消息数，来自 `GET /claims/unread-count`，决定铃铛红点是否显示。
   int _unread = 0;
 
-  final GlobalKey<MyPublishPageState> _myPublishKey = GlobalKey();
+  /// 「我的发布」刷新触发器：值变化时 MyPublishPage 重新拉取列表。
+  /// 用 ValueNotifier 而非 GlobalKey，避免 element reparenting 导致的
+  /// `_dependents.isEmpty` 断言与 Duplicate GlobalKeys 错误。
+  final ValueNotifier<int> _myPublishRefreshTrigger = ValueNotifier<int>(0);
 
   @override
   void initState() {
     super.initState();
     _loadItems();
     _loadUnread();
+  }
+
+  @override
+  void dispose() {
+    _myPublishRefreshTrigger.dispose();
+    super.dispose();
   }
 
   /// 从后端拉取最新信息列表，根据当前 Tab 筛选 type。
@@ -89,16 +98,18 @@ class _HomePageState extends State<HomePage> {
   void _switchTab(int index) {
     setState(() => _currentIndex = index);
     if (index == 3) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _myPublishKey.currentState?.refresh();
-      });
+      _myPublishRefreshTrigger.value++;
     }
   }
 
   /// 发布成功后刷新「我的发布」并切回首页。
   void _onPublished() {
-    _myPublishKey.currentState?.refresh();
     _goHome();
+    // 延迟到帧结束后再触发刷新，避免与 IndexedStack 切换同一帧导致
+    // InheritedWidget deactivate 时依赖未清理（_dependents.isEmpty 断言）。
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _myPublishRefreshTrigger.value++;
+    });
   }
 
   /// 打开消息通知页；返回后重新拉未读数刷新红点。
@@ -131,7 +142,7 @@ class _HomePageState extends State<HomePage> {
           SearchPage(onBack: _goHome),
           PublishPage(onBack: _goHome, onPublished: _onPublished),
           MyPublishPage(
-            key: _myPublishKey,
+            refreshTrigger: _myPublishRefreshTrigger,
             onBack: _goHome,
             onAdd: () => setState(() => _currentIndex = 2),
             onOpenProfile: _openMyProfile,
@@ -226,7 +237,7 @@ class _HomePageState extends State<HomePage> {
               const Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('阳光大学 · 失物招领平台',
+                  Text('福州大学 · 失物招领平台',
                       style: TextStyle(color: Colors.white70, fontSize: 12)),
                   SizedBox(height: 6),
                   Row(

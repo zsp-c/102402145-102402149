@@ -40,6 +40,11 @@ class _LoginPageState extends State<LoginPage> {
       if (!mounted) return;
       if (resp.success && resp.data != null) {
         ApiConfig.token = resp.data!.token;
+        // 先写用户信息，再换路由栈。
+        // 此刻树上只有登录页，没有任何 ValueListenableBuilder 在监听 currentUser，
+        // 赋值不会触发重建；等首页构建时数据已经就绪。
+        // 反过来（先换路由、再在帧末赋值）会在路由切换动画进行中通知监听者，
+        // 导致 element 树搬迁途中触发重建，引发 `_dependents.isEmpty` 断言。
         AppData.currentUser.value = resp.data!.user;
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(builder: (_) => const HomePage()),
