@@ -17,4 +17,14 @@ public class PageResult {
 
     private List records; //当前页数据集合
 
+    private long pageNum; //当前页码
+
+    private long pageSize; //每页条数
+
+    private long pages; //总页数
+
+    public PageResult(long total, List records) {
+        this.total = total;
+        this.records = records;
+    }
 }

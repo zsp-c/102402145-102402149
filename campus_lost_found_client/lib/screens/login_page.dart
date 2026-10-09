@@ -40,7 +40,7 @@ class _LoginPageState extends State<LoginPage> {
       if (!mounted) return;
       if (resp.success && resp.data != null) {
         ApiConfig.token = resp.data!.token;
-        AppData.currentUser = resp.data!.user;
+        AppData.currentUser.value = resp.data!.user;
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(builder: (_) => const HomePage()),
           (route) => false,

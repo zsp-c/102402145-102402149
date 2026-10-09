@@ -1,5 +1,8 @@
 package com.zsp.campus.entity;
 
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -15,11 +18,13 @@ import java.time.LocalDateTime;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
+@TableName("item")
 public class Item implements Serializable {
     @Serial
     private static final long serialVersionUID = 1L;
 
     /** 物品 id */
+    @TableId(type = IdType.AUTO)
     private Long itemId;
 
     /** 发布者 id，关联 user 表 */

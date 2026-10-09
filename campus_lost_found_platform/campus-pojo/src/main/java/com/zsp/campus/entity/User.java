@@ -1,5 +1,8 @@
 package com.zsp.campus.entity;
 
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -17,11 +20,13 @@ import java.time.LocalDateTime;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@TableName("user")
 public class User implements Serializable {
     @Serial
     private static final long serialVersionUID = 1L;
 
     /** 用户 id */
+    @TableId(type = IdType.AUTO)
     private Long userId;
 
     /** 学号，登录账号 */

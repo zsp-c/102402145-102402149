@@ -48,6 +48,38 @@ class _PublishPageState extends State<PublishPage> {
   final _descCtrl = TextEditingController();
   final _locationCtrl = TextEditingController(text: '图书馆三楼自习区');
 
+  /// 从后端 `/categories` 拉取的分类名称列表。
+  List<String> _categories = [];
+  bool _categoriesLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCategories();
+  }
+
+  /// 拉取物品分类列表，失败时回退到本地默认分类。
+  Future<void> _loadCategories() async {
+    try {
+      final resp = await ApiService.getCategories();
+      if (resp.success && resp.data != null && resp.data!.isNotEmpty) {
+        if (mounted) {
+          setState(() {
+            _categories = resp.data!;
+            _categoriesLoading = false;
+          });
+        }
+        return;
+      }
+    } catch (_) {}
+    if (mounted) {
+      setState(() {
+        _categories = AppData.categories.map((c) => c.name).toList();
+        _categoriesLoading = false;
+      });
+    }
+  }
+
   @override
   void dispose() {
     _nameCtrl.dispose();
@@ -268,32 +300,41 @@ class _PublishPageState extends State<PublishPage> {
           const Text('物品分类 *',
               style: TextStyle(fontSize: 14, color: Color(0xFF374151), fontWeight: FontWeight.w500)),
           const SizedBox(height: 10),
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: AppData.categories.map((c) {
-              final active = _selectedCategory == c.name;
-              return GestureDetector(
-                onTap: () => setState(() => _selectedCategory = c.name),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
-                  decoration: BoxDecoration(
-                    color: active ? const Color(0xFFFFE8DD) : const Color(0xFFF7F8FA),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: active ? const Color(0xFFFF7A2E) : Colors.transparent,
-                    ),
+          _categoriesLoading
+              ? const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 8),
+                  child: SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFFF7A2E)),
                   ),
-                  child: Text(c.name,
-                      style: TextStyle(
-                        color: active ? const Color(0xFFFF7A2E) : const Color(0xFF4B5563),
-                        fontSize: 14,
-                        fontWeight: active ? FontWeight.w600 : FontWeight.normal,
-                      )),
+                )
+              : Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: _categories.map((name) {
+                    final active = _selectedCategory == name;
+                    return GestureDetector(
+                      onTap: () => setState(() => _selectedCategory = name),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+                        decoration: BoxDecoration(
+                          color: active ? const Color(0xFFFFE8DD) : const Color(0xFFF7F8FA),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: active ? const Color(0xFFFF7A2E) : Colors.transparent,
+                          ),
+                        ),
+                        child: Text(name,
+                            style: TextStyle(
+                              color: active ? const Color(0xFFFF7A2E) : const Color(0xFF4B5563),
+                              fontSize: 14,
+                              fontWeight: active ? FontWeight.w600 : FontWeight.normal,
+                            )),
+                      ),
+                    );
+                  }).toList(),
                 ),
-              );
-            }).toList(),
-          ),
           const SizedBox(height: 18),
           const Text('详细描述 *',
               style: TextStyle(fontSize: 14, color: Color(0xFF374151), fontWeight: FontWeight.w500)),
@@ -555,11 +596,9 @@ class _PublishPageState extends State<PublishPage> {
 
     final isLost = _mode == 0;
     final type = isLost ? ItemType.lost : ItemType.found;
-    final status = isLost ? ItemStatus.seeking : ItemStatus.pending;
 
     setState(() => _submitting = true);
     try {
-      await Future<void>.delayed(const Duration(milliseconds: 800));
       if (!mounted) return;
 
       final now = DateTime.now();
@@ -569,27 +608,24 @@ class _PublishPageState extends State<PublishPage> {
       final timeStr = _selectedTime == null
           ? '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}'
           : '${_selectedTime!.hour.toString().padLeft(2, '0')}:${_selectedTime!.minute.toString().padLeft(2, '0')}';
-      final lostOrFoundTime = '$dateStr $timeStr';
+      final findOrLostTime = '$dateStr $timeStr';
 
-      final newItem = ItemModel(
-        id: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+      final resp = await ApiService.createItem(
         type: type,
-        title: _nameCtrl.text.trim(),
-        status: status,
-        categoryName: _selectedCategory!,
-        location: _locationCtrl.text.trim(),
-        summary: _descCtrl.text.trim(),
-        images: _images.map((e) => e.ossUrl!).where((u) => u.isNotEmpty).toList(),
-        lostOrFoundTime: lostOrFoundTime,
-        createdAt: '刚刚',
-        viewCount: 0,
-        claimCount: 0,
+        name: _nameCtrl.text.trim(),
+        category: _selectedCategory!,
         description: _descCtrl.text.trim(),
-        user: AppData.currentUser,
+        location: _locationCtrl.text.trim(),
+        findOrLostTime: findOrLostTime,
+        images: _images.map((e) => e.ossUrl!).where((u) => u.isNotEmpty).toList(),
       );
 
-      AppData.latestItems.insert(0, newItem);
-      AppData.myPublishedItems.insert(0, newItem);
+      if (!mounted) return;
+      if (!resp.success) {
+        setState(() => _submitting = false);
+        _showFeedback(resp.msg.isEmpty ? '发布失败' : '发布失败：${resp.msg}', success: false);
+        return;
+      }
 
       setState(() {
         _submitting = false;
@@ -602,6 +638,9 @@ class _PublishPageState extends State<PublishPage> {
         _descCtrl.clear();
         _locationCtrl.text = '图书馆三楼自习区';
       });
+      // 更新当前用户累计发布数
+      final u = AppData.currentUser.value;
+      AppData.currentUser.value = u.copyWith(totalPublish: u.totalPublish + 1);
       _showFeedback(isLost ? '发布成功，希望早日找回' : '发布成功，等待失主认领', success: true);
       widget.onPublished?.call();
     } catch (e) {

@@ -1,9 +1,14 @@
 D:\learn\java work\102402145-102402149\campus_lost_found_platform\campus-common\src\main\java\com\zsp\campus\exception\BaseException.java
 D:\learn\java work\102402145-102402149\campus_lost_found_platform\campus-common\src\main\java\com\zsp\campus\exception\FileUploadException.java
+D:\learn\java work\102402145-102402149\campus_lost_found_platform\campus-common\src\main\java\com\zsp\campus\properties\AliOssProperties.java
+D:\learn\java work\102402145-102402149\campus_lost_found_platform\campus-common\src\main\java\com\zsp\campus\utils\AliOssUtil.java
 D:\learn\java work\102402145-102402149\campus_lost_found_platform\campus-common\src\main\java\com\zsp\campus\exception\ContactSelfException.java
+D:\learn\java work\102402145-102402149\campus_lost_found_platform\campus-common\src\main\java\com\zsp\campus\json\JacksonObjectMapper.java
 D:\learn\java work\102402145-102402149\campus_lost_found_platform\campus-common\src\main\java\com\zsp\campus\exception\NotLoginException.java
+D:\learn\java work\102402145-102402149\campus_lost_found_platform\campus-common\src\main\java\com\zsp\campus\utils\JwtUtil.java
 D:\learn\java work\102402145-102402149\campus_lost_found_platform\campus-common\src\main\java\com\zsp\campus\exception\AccountNotFoundException.java
 D:\learn\java work\102402145-102402149\campus_lost_found_platform\campus-common\src\main\java\com\zsp\campus\context\BaseContext.java
+D:\learn\java work\102402145-102402149\campus_lost_found_platform\campus-common\src\main\java\com\zsp\campus\properties\JwtProperties.java
 D:\learn\java work\102402145-102402149\campus_lost_found_platform\campus-common\src\main\java\com\zsp\campus\constant\CategoryConstant.java
 D:\learn\java work\102402145-102402149\campus_lost_found_platform\campus-common\src\main\java\com\zsp\campus\enumeration\OperationType.java
 D:\learn\java work\102402145-102402149\campus_lost_found_platform\campus-common\src\main\java\com\zsp\campus\result\PageResult.java
@@ -12,6 +17,7 @@ D:\learn\java work\102402145-102402149\campus_lost_found_platform\campus-common\
 D:\learn\java work\102402145-102402149\campus_lost_found_platform\campus-common\src\main\java\com\zsp\campus\exception\InvalidCategoryException.java
 D:\learn\java work\102402145-102402149\campus_lost_found_platform\campus-common\src\main\java\com\zsp\campus\result\ApiResponse.java
 D:\learn\java work\102402145-102402149\campus_lost_found_platform\campus-common\src\main\java\com\zsp\campus\exception\StudentIdExistException.java
+D:\learn\java work\102402145-102402149\campus_lost_found_platform\campus-common\src\main\java\com\zsp\campus\constant\MessageConstant.java
 D:\learn\java work\102402145-102402149\campus_lost_found_platform\campus-common\src\main\java\com\zsp\campus\exception\ItemAccessDeniedException.java
 D:\learn\java work\102402145-102402149\campus_lost_found_platform\campus-common\src\main\java\com\zsp\campus\exception\ItemNotFoundException.java
 D:\learn\java work\102402145-102402149\campus_lost_found_platform\campus-common\src\main\java\com\zsp\campus\exception\PasswordErrorException.java

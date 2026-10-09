@@ -5,6 +5,7 @@ import '../models/item_model.dart';
 
 /// 后端接口地址。Spring Boot 默认 8080 端口。
 /// 真机调试时需改为电脑局域网 IP（如 http://192.168.x.x:8080）。
+/// 'http://10.0.2.2:8080'
 class ApiConfig {
   static const String baseUrl = 'http://10.0.2.2:8080';
 
@@ -64,8 +65,53 @@ class ApiService {
       headers: _headers(),
       body: jsonEncode(body),
     );
-    final json = jsonDecode(resp.body) as Map<String, dynamic>;
-    return ApiResponse<T>.fromJson(json, dataParser);
+    return _parseResponse<T>(resp.body, dataParser);
+  }
+
+  /// 发送一个 JSON PUT 请求并解析统一响应。
+  static Future<ApiResponse<T>> _putJson<T>(
+    String path,
+    Map<String, dynamic> body,
+    T Function(dynamic)? dataParser,
+  ) async {
+    final uri = Uri.parse('${ApiConfig.baseUrl}$path');
+    final resp = await http.put(
+      uri,
+      headers: _headers(),
+      body: jsonEncode(body),
+    );
+    return _parseResponse<T>(resp.body, dataParser);
+  }
+
+  /// 发送一个 GET 请求并解析统一响应。
+  static Future<ApiResponse<T>> _get<T>(
+    String path,
+    T Function(dynamic)? dataParser,
+  ) async {
+    final uri = Uri.parse('${ApiConfig.baseUrl}$path');
+    final resp = await http.get(uri, headers: _headers());
+    return _parseResponse<T>(resp.body, dataParser);
+  }
+
+  /// 安全解析后端响应。
+  /// - 若响应体为空或非 JSON，抛出可读的异常；
+  /// - 若响应结构符合 ApiResponse，正常解析。
+  static ApiResponse<T> _parseResponse<T>(
+    String body,
+    T Function(dynamic)? dataParser,
+  ) {
+    if (body.isEmpty) {
+      throw Exception('服务器返回了空响应，请确认后端服务已启动');
+    }
+    try {
+      final json = jsonDecode(body);
+      if (json is! Map<String, dynamic>) {
+        throw Exception('响应格式异常：$body');
+      }
+      return ApiResponse<T>.fromJson(json, dataParser);
+    } on FormatException {
+      throw Exception('服务器返回了非 JSON 响应，请确认后端服务正常运行');
+    }
   }
 
   /// `POST /login` —— 用户登录。
@@ -104,6 +150,36 @@ class ApiService {
     return _postJson<void>('/auth/register', body, null);
   }
 
+  /// `GET /users/me` —— 获取当前登录用户资料。
+  static Future<ApiResponse<UserModel>> getCurrentUser() async {
+    return _get<UserModel>(
+      '/users/me',
+      (d) => UserModel.fromJson(d as Map<String, dynamic>),
+    );
+  }
+
+  /// `PUT /users/me` —— 修改当前用户资料。
+  /// 可修改字段：nickname, avatar, phone, college, grade
+  static Future<ApiResponse<UserModel>> updateUser({
+    String? nickname,
+    String? avatar,
+    String? phone,
+    String? college,
+    String? grade,
+  }) async {
+    final body = <String, dynamic>{};
+    if (nickname != null) body['nickname'] = nickname;
+    if (avatar != null) body['avatar'] = avatar;
+    if (phone != null) body['phone'] = phone;
+    if (college != null) body['college'] = college;
+    if (grade != null) body['grade'] = grade;
+    return _putJson<UserModel>(
+      '/users/me',
+      body,
+      (d) => UserModel.fromJson(d as Map<String, dynamic>),
+    );
+  }
+
   /// 上传单张图片到阿里云 OSS，返回图片访问 URL。
   /// 流程：本地选图 → POST /upload/image (multipart/form-data, field=file)
   ///      → 后端调用 AliOssUtil.upload 上传至 OSS → 返回图片访问 URL
@@ -138,6 +214,188 @@ class ApiService {
       throw Exception('上传失败：未返回图片地址');
     }
     return resp.data!;
+  }
+
+  // ============================================================
+  //  物品模块
+  // ============================================================
+
+  /// `GET /items` —— 获取最新信息列表（首页）。
+  /// 参数：type(LOST/FOUND), categoryId, pageNum, pageSize。
+  static Future<ApiResponse<PageResult<ItemModel>>> getItems({
+    String? type,
+    int? categoryId,
+    int pageNum = 1,
+    int pageSize = 10,
+  }) async {
+    final params = <String, String>{
+      'pageNum': pageNum.toString(),
+      'pageSize': pageSize.toString(),
+    };
+    if (type != null) params['type'] = type;
+    if (categoryId != null) params['categoryId'] = categoryId.toString();
+    final uri = Uri.parse('${ApiConfig.baseUrl}/items').replace(queryParameters: params);
+    final resp = await http.get(uri, headers: _headers());
+    return _parseResponse<PageResult<ItemModel>>(
+      resp.body,
+      (d) => PageResult.fromJson(d as Map<String, dynamic>, ItemModel.fromJson),
+    );
+  }
+
+  /// `GET /items/{id}` —— 获取物品详情。
+  static Future<ApiResponse<ItemModel>> getItemDetail(int id) async {
+    return _get<ItemModel>(
+      '/items/$id',
+      (d) => ItemModel.fromJson(d as Map<String, dynamic>),
+    );
+  }
+
+  /// `POST /items` —— 发布失物/招领信息，返回新信息的 itemId。
+  static Future<ApiResponse<int>> createItem({
+    required String type,
+    required String name,
+    required String category,
+    required String description,
+    required String location,
+    required String findOrLostTime,
+    List<String> images = const [],
+  }) async {
+    return _postJson<int>(
+      '/items',
+      {
+        'type': type,
+        'name': name,
+        'category': category,
+        'description': description,
+        'location': location,
+        'findOrLostTime': findOrLostTime,
+        'images': images,
+      },
+      (d) {
+        final map = d as Map<String, dynamic>;
+        return (map['itemId'] as num?)?.toInt() ?? 0;
+      },
+    );
+  }
+
+  /// `DELETE /items/{id}` —— 删除信息（只能删除自己发布的，已解决不可删除）。
+  static Future<ApiResponse<void>> deleteItem(int id) async {
+    final uri = Uri.parse('${ApiConfig.baseUrl}/items/$id');
+    final resp = await http.delete(uri, headers: _headers());
+    return _parseResponse<void>(resp.body, null);
+  }
+
+  /// `PUT /items/{id}/resolve` —— 标记已解决（已找回/已归还）。
+  static Future<ApiResponse<void>> resolveItem(int id) async {
+    final uri = Uri.parse('${ApiConfig.baseUrl}/items/$id/resolve');
+    final resp = await http.put(uri, headers: _headers(), body: jsonEncode({}));
+    return _parseResponse<void>(resp.body, null);
+  }
+
+  /// `PUT /items/{id}` —— 修改已发布信息（只能修改自己发布的）。
+  static Future<ApiResponse<ItemModel>> updateItem({
+    required int id,
+    required String type,
+    required String name,
+    required String category,
+    required String description,
+    required String location,
+    required String findOrLostTime,
+    List<String> images = const [],
+  }) async {
+    return _putJson<ItemModel>(
+      '/items/$id',
+      {
+        'type': type,
+        'name': name,
+        'category': category,
+        'description': description,
+        'location': location,
+        'findOrLostTime': findOrLostTime,
+        'images': images,
+      },
+      (d) => ItemModel.fromJson(d as Map<String, dynamic>),
+    );
+  }
+
+  /// `GET /items/search` —— 搜索信息。
+  static Future<ApiResponse<PageResult<ItemModel>>> searchItems({
+    required String keyword,
+    String? type,
+    int? categoryId,
+    int pageNum = 1,
+    int pageSize = 10,
+  }) async {
+    final params = <String, String>{
+      'keyword': keyword,
+      'pageNum': pageNum.toString(),
+      'pageSize': pageSize.toString(),
+    };
+    if (type != null) params['type'] = type;
+    if (categoryId != null) params['categoryId'] = categoryId.toString();
+    final uri = Uri.parse('${ApiConfig.baseUrl}/items/search').replace(queryParameters: params);
+    final resp = await http.get(uri, headers: _headers());
+    return _parseResponse<PageResult<ItemModel>>(
+      resp.body,
+      (d) => PageResult.fromJson(d as Map<String, dynamic>, ItemModel.fromJson),
+    );
+  }
+
+  /// `GET /items/my` —— 获取我的发布列表。
+  static Future<ApiResponse<PageResult<ItemModel>>> getMyItems({
+    String? type,
+    String? status,
+    int pageNum = 1,
+    int pageSize = 10,
+  }) async {
+    final params = <String, String>{
+      'pageNum': pageNum.toString(),
+      'pageSize': pageSize.toString(),
+    };
+    if (type != null) params['type'] = type;
+    if (status != null) params['status'] = status;
+    final uri = Uri.parse('${ApiConfig.baseUrl}/items/my').replace(queryParameters: params);
+    final resp = await http.get(uri, headers: _headers());
+    return _parseResponse<PageResult<ItemModel>>(
+      resp.body,
+      (d) => PageResult.fromJson(d as Map<String, dynamic>, ItemModel.fromJson),
+    );
+  }
+
+  /// `GET /categories` —— 获取所有物品分类。
+  static Future<ApiResponse<List<String>>> getCategories() async {
+    return _get<List<String>>(
+      '/categories',
+      (d) => (d as List).map((e) => e.toString()).toList(),
+    );
+  }
+}
+
+/// 分页数据结构，对应后端 PageResult。
+class PageResult<T> {
+  final List<T> records;
+  final int total;
+  final int pageNum;
+  final int pageSize;
+  final int pages;
+
+  PageResult({
+    required this.records,
+    required this.total,
+    required this.pageNum,
+    required this.pageSize,
+    required this.pages,
+  });
+
+  factory PageResult.fromJson(Map<String, dynamic> json, T Function(Map<String, dynamic>) recordParser) {
+    final recordsJson = json['records'] as List? ?? [];
+    return PageResult<T>(
+      records: recordsJson.map((e) => recordParser(e as Map<String, dynamic>)).toList(),
+      total: (json['total'] as num?)?.toInt() ?? 0,
+      pageNum: (json['pageNum'] as num?)?.toInt() ?? 1,
+      pageSize: (json['pageSize'] as num?)?.toInt() ?? 10,
+      pages: (json['pages'] as num?)?.toInt() ?? 0,
+    );
   }
 }
 

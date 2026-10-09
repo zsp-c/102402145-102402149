@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../data/app_data.dart';
 import '../models/item_model.dart';
+import '../services/api_service.dart';
 import '../utils/toast_util.dart';
 import 'detail_page.dart';
 
@@ -23,33 +24,73 @@ class MyPublishPage extends StatefulWidget {
   final VoidCallback? onOpenProfile;
 
   @override
-  State<MyPublishPage> createState() => _MyPublishPageState();
+  State<MyPublishPage> createState() => MyPublishPageState();
 }
 
-class _MyPublishPageState extends State<MyPublishPage> {
+class MyPublishPageState extends State<MyPublishPage> {
   int _tab = 0;
 
   /// 「我的发布」的筛选维度：全部 / 寻物中 / 招领中 / 已找回。
   static const List<String> _tabLabels = ['全部', '寻物中', '招领中', '已找回'];
 
+  List<ItemModel> _items = [];
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadItems();
+  }
+
+  /// 对外暴露的刷新方法：切回「我的发布」tab 或发布成功后由 HomePage 调用。
+  Future<void> refresh() => _loadItems();
+
+  /// 从后端拉取我的发布列表（不带筛选，本地按 Tab 过滤以支持计数）。
+  Future<void> _loadItems() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final resp = await ApiService.getMyItems(pageSize: 50);
+      if (!resp.success) {
+        setState(() => _error = resp.msg.isEmpty ? '加载失败' : resp.msg);
+        return;
+      }
+      if (mounted) {
+        setState(() {
+          _items = resp.data?.records ?? [];
+          _loading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _error = e.toString();
+          _loading = false;
+        });
+      }
+    }
+  }
+
   List<ItemModel> _itemsOf(int tab) {
     switch (tab) {
       case 1:
-        return AppData.myPublishedItems.where((e) => e.type == ItemType.lost).toList();
+        return _items.where((e) => e.type == ItemType.lost).toList();
       case 2:
-        return AppData.myPublishedItems.where((e) => e.type == ItemType.found).toList();
+        return _items.where((e) => e.type == ItemType.found).toList();
       case 3:
-        return AppData.myPublishedItems
+        return _items
             .where((e) => e.status == ItemStatus.found || e.status == ItemStatus.claimed)
             .toList();
       default:
-        return AppData.myPublishedItems;
+        return _items;
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final user = AppData.currentUser;
     final items = _itemsOf(_tab);
     return Scaffold(
       backgroundColor: const Color(0xFFF5F6F8),
@@ -77,13 +118,27 @@ class _MyPublishPageState extends State<MyPublishPage> {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            _buildUserCard(user),
-            const SizedBox(height: 16),
-            _buildStatRow(user),
+            ValueListenableBuilder<UserModel>(
+              valueListenable: AppData.currentUser,
+              builder: (context, user, _) => Column(
+                children: [
+                  _buildUserCard(user),
+                  const SizedBox(height: 16),
+                  _buildStatRow(user),
+                ],
+              ),
+            ),
             const SizedBox(height: 16),
             _buildTabs(),
             const SizedBox(height: 12),
-            if (items.isEmpty)
+            if (_loading)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 48),
+                child: CircularProgressIndicator(color: Color(0xFFFF7A2E)),
+              )
+            else if (_error != null)
+              _buildErrorView()
+            else if (items.isEmpty)
               _buildEmpty()
             else
               ListView.separated(
@@ -95,6 +150,33 @@ class _MyPublishPageState extends State<MyPublishPage> {
               ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildErrorView() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 48),
+      child: Column(
+        children: [
+          const Icon(Icons.error_outline, size: 52, color: Color(0xFFFF7A2E)),
+          const SizedBox(height: 10),
+          Text(_error ?? '加载失败', style: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 14)),
+          const SizedBox(height: 12),
+          GestureDetector(
+            onTap: _loadItems,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFF7A2E),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: const Text('重试',
+                  style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -113,17 +195,30 @@ class _MyPublishPageState extends State<MyPublishPage> {
             Container(
               width: 56,
               height: 56,
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Color(0xFFFFA066), Color(0xFFFF7A2E)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
+              decoration: BoxDecoration(
                 shape: BoxShape.circle,
+                gradient: !user.hasAvatar
+                    ? const LinearGradient(
+                        colors: [Color(0xFFFFA066), Color(0xFFFF7A2E)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      )
+                    : null,
               ),
-              alignment: Alignment.center,
-              child: Text(user.avatarText,
-                  style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w700)),
+              clipBehavior: Clip.antiAlias,
+              child: user.hasAvatar
+                  ? Image.network(
+                      user.avatar,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) => Center(
+                        child: Text(user.avatarText,
+                            style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w700)),
+                      ),
+                    )
+                  : Center(
+                      child: Text(user.avatarText,
+                          style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w700)),
+                    ),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -241,6 +336,79 @@ class _MyPublishPageState extends State<MyPublishPage> {
     ToastUtil.info(context, message);
   }
 
+  /// `PUT /items/{id}/resolve` 标记已解决。
+  Future<void> _onResolve(ItemModel item) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('标记已解决'),
+        content: Text('确认将该${item.isFound ? '招领' : '寻物'}信息标记为已${item.isFound ? '归还' : '找回'}？'),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('取消')),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('确认', style: TextStyle(color: Color(0xFFFF7A2E), fontWeight: FontWeight.w600)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    try {
+      final resp = await ApiService.resolveItem(item.id);
+      if (!mounted) return;
+      if (resp.success) {
+        _toast('已标记为解决');
+        final newStatus = item.isFound ? ItemStatus.claimed : ItemStatus.found;
+        setState(() {
+          _items = _items.map((e) => e.id == item.id ? e.copyWith(status: newStatus) : e).toList();
+        });
+        // 已找回/已归还数 +1
+        final u = AppData.currentUser.value;
+        AppData.currentUser.value = u.copyWith(totalCompleted: u.totalCompleted + 1);
+      } else {
+        _toast(resp.msg.isEmpty ? '操作失败' : resp.msg);
+      }
+    } catch (e) {
+      if (mounted) _toast('网络异常：$e');
+    }
+  }
+
+  /// `DELETE /items/{id}` 删除信息。
+  Future<void> _onDelete(ItemModel item) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('删除信息'),
+        content: const Text('确认删除该信息？删除后不可恢复。'),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('取消')),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('删除', style: TextStyle(color: Color(0xFFE74C3C), fontWeight: FontWeight.w600)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    try {
+      final resp = await ApiService.deleteItem(item.id);
+      if (!mounted) return;
+      if (resp.success) {
+        _toast('已删除');
+        setState(() => _items = _items.where((e) => e.id != item.id).toList());
+        // 累计发布数 -1
+        final u = AppData.currentUser.value;
+        AppData.currentUser.value = u.copyWith(totalPublish: u.totalPublish - 1);
+      } else {
+        _toast(resp.msg.isEmpty ? '删除失败' : resp.msg);
+      }
+    } catch (e) {
+      if (mounted) _toast('网络异常：$e');
+    }
+  }
+
   Widget _buildPublishCard(ItemModel item) {
     return Container(
       padding: const EdgeInsets.all(14),
@@ -342,24 +510,29 @@ class _MyPublishPageState extends State<MyPublishPage> {
               Expanded(
                 flex: 2,
                 child: GestureDetector(
-                  onTap: () => _toast(item.isFound ? '已标记为「已归还」' : '已标记为「已找回」'),
+                  onTap: item.isResolved ? null : () => _onResolve(item),
                   child: Container(
                     padding: const EdgeInsets.symmetric(vertical: 10),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFE8F8F5),
+                      color: item.isResolved ? const Color(0xFFF3F4F6) : const Color(0xFFE8F8F5),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     alignment: Alignment.center,
                     child: Text(
-                      item.isFound ? '标记已归还' : '标记已找回',
-                      style: const TextStyle(color: Color(0xFF2DB8A3), fontSize: 14, fontWeight: FontWeight.w600),
+                      item.isResolved
+                          ? (item.isFound ? '已归还' : '已找回')
+                          : (item.isFound ? '标记已归还' : '标记已找回'),
+                      style: TextStyle(
+                          color: item.isResolved ? const Color(0xFF9CA3AF) : const Color(0xFF2DB8A3),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600),
                     ),
                   ),
                 ),
               ),
               const SizedBox(width: 10),
               GestureDetector(
-                onTap: () => _toast('已删除该条信息'),
+                onTap: () => _onDelete(item),
                 child: Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(

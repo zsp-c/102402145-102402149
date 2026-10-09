@@ -33,5 +33,10 @@
             <groupId>io.swagger.core.v3</groupId>
             <artifactId>swagger-annotations-jakarta</artifactId>
         </dependency>
+        <!-- MyBatis-Plus 注解（实体类上的 @TableName / @TableId） -->
+        <dependency>
+            <groupId>com.baomidou</groupId>
+            <artifactId>mybatis-plus-spring-boot3-starter</artifactId>
+        </dependency>
     </dependencies>
 </project>

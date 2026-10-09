@@ -1,23 +1,23 @@
 import 'package:flutter/material.dart';
+import '../data/app_data.dart';
 import '../models/item_model.dart';
-import 'detail_page.dart';
+import '../services/api_service.dart';
+import 'login_page.dart';
+import 'edit_profile_page.dart';
 
-/// 学生详情页，对应接口文档 `GET /users/{userId}`（本人资料即 `GET /users/me`）。
-/// 由「我的发布」用户卡片或物品详情页的发布者卡片进入。
+/// 学生详情页，展示学生基本信息。
+/// - 他人页面：保留关注按钮；
+/// - 本人页面（isSelf）：展示「修改资料」「退出登录」按钮。
 class UserProfilePage extends StatefulWidget {
   const UserProfilePage({
     super.key,
     required this.user,
-    this.items = const [],
     this.isSelf = false,
   });
 
   final UserModel user;
 
-  /// TA 发布过的信息列表。
-  final List<ItemModel> items;
-
-  /// 是否查看自己的资料（自己的话不显示关注按钮）。
+  /// 是否查看自己的资料。
   final bool isSelf;
 
   @override
@@ -26,10 +26,10 @@ class UserProfilePage extends StatefulWidget {
 
 class _UserProfilePageState extends State<UserProfilePage> {
   late bool _followed = widget.user.followed;
+  late UserModel _user = widget.user;
 
   @override
   Widget build(BuildContext context) {
-    final user = widget.user;
     return Scaffold(
       backgroundColor: const Color(0xFFF5F6F8),
       appBar: AppBar(
@@ -41,7 +41,7 @@ class _UserProfilePageState extends State<UserProfilePage> {
               child: const Icon(Icons.arrow_back_ios, color: Colors.white, size: 20),
             ),
             const Spacer(),
-            const Text('学生详情'),
+            Text(widget.isSelf ? '个人资料' : '学生详情'),
             const Spacer(),
             const SizedBox(width: 20),
           ],
@@ -52,30 +52,15 @@ class _UserProfilePageState extends State<UserProfilePage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildProfileCard(user),
+            _buildProfileCard(_user),
             const SizedBox(height: 16),
-            _buildStatGrid(user),
-            const SizedBox(height: 20),
-            Row(
-              children: [
-                const Text('TA 的发布',
-                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: Color(0xFF1F2937))),
-                const Spacer(),
-                Text('共 ${widget.items.length} 条',
-                    style: const TextStyle(fontSize: 13, color: Colors.grey)),
-              ],
-            ),
-            const SizedBox(height: 12),
-            if (widget.items.isEmpty)
-              _buildEmpty()
-            else
-              ListView.separated(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: widget.items.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 12),
-                itemBuilder: (context, index) => _buildItemCard(widget.items[index]),
-              ),
+            _buildStatGrid(_user),
+            const SizedBox(height: 16),
+            _buildInfoCard(_user),
+            if (widget.isSelf) ...[
+              const SizedBox(height: 24),
+              _buildActionButtons(),
+            ],
           ],
         ),
       ),
@@ -89,84 +74,86 @@ class _UserProfilePageState extends State<UserProfilePage> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
       ),
-      child: Column(
+      child: Row(
         children: [
-          Row(
-            children: [
-              Container(
-                width: 64,
-                height: 64,
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Color(0xFFFFA066), Color(0xFFFF7A2E)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  shape: BoxShape.circle,
-                ),
-                alignment: Alignment.center,
-                child: Text(user.avatarText,
-                    style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w700)),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(user.nickname,
-                        style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w700, color: Color(0xFF1F2937))),
-                    const SizedBox(height: 6),
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFE8F8F5),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Text('${user.college} · ${user.grade}',
-                              style: const TextStyle(
-                                  color: Color(0xFF2DB8A3), fontSize: 12, fontWeight: FontWeight.w600)),
-                        ),
-                        const SizedBox(width: 8),
-                        Text('加入 ${user.joinedDays} 天',
-                            style: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 12)),
-                      ],
+          Container(
+            width: 64,
+            height: 64,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: !user.hasAvatar
+                  ? const LinearGradient(
+                      colors: [Color(0xFFFFA066), Color(0xFFFF7A2E)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    )
+                  : null,
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: user.hasAvatar
+                ? Image.network(
+                    user.avatar,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Center(
+                      child: Text(user.avatarText,
+                          style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w700)),
                     ),
+                    loadingBuilder: (_, child, progress) {
+                      if (progress == null) return child;
+                      return const Center(child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white));
+                    },
+                  )
+                : Center(
+                    child: Text(user.avatarText,
+                        style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w700)),
+                  ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(user.nickname,
+                    style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w700, color: Color(0xFF1F2937))),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE8F8F5),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text('${user.college} · ${user.grade}',
+                          style: const TextStyle(
+                              color: Color(0xFF2DB8A3), fontSize: 12, fontWeight: FontWeight.w600)),
+                    ),
+                    const SizedBox(width: 8),
+                    Text('加入 ${user.joinedDays} 天',
+                        style: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 12)),
                   ],
                 ),
-              ),
-              if (!widget.isSelf)
-                GestureDetector(
-                  onTap: () => setState(() => _followed = !_followed),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: _followed ? const Color(0xFFFFF1E8) : const Color(0xFFFF7A2E),
-                      borderRadius: BorderRadius.circular(18),
-                      border: Border.all(color: const Color(0xFFFF7A2E)),
-                    ),
-                    child: Text(_followed ? '已关注' : '+ 关注',
-                        style: TextStyle(
-                          color: _followed ? const Color(0xFFFF7A2E) : Colors.white,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                        )),
-                  ),
+              ],
+            ),
+          ),
+          if (!widget.isSelf)
+            GestureDetector(
+              onTap: () => setState(() => _followed = !_followed),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: _followed ? const Color(0xFFFFF1E8) : const Color(0xFFFF7A2E),
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: const Color(0xFFFF7A2E)),
                 ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          Container(height: 1, color: const Color(0xFFF0F0F2)),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              const Icon(Icons.badge_outlined, color: Color(0xFF9CA3AF), size: 16),
-              const SizedBox(width: 6),
-              Text('学号 ${user.studentId}',
-                  style: const TextStyle(color: Color(0xFF6B7280), fontSize: 13)),
-            ],
-          ),
+                child: Text(_followed ? '已关注' : '+ 关注',
+                    style: TextStyle(
+                      color: _followed ? const Color(0xFFFF7A2E) : Colors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    )),
+              ),
+            ),
         ],
       ),
     );
@@ -186,8 +173,6 @@ class _UserProfilePageState extends State<UserProfilePage> {
           _buildStatCell('${user.totalOngoing}', '进行中', const Color(0xFF2DB8A3)),
           _divider(),
           _buildStatCell('${user.totalCompleted}', '已找回', const Color(0xFF4B5563)),
-          _divider(),
-          _buildStatCell('${user.helpedCount}', '已帮助', const Color(0xFF6B7FE3)),
         ],
       ),
     );
@@ -207,104 +192,138 @@ class _UserProfilePageState extends State<UserProfilePage> {
     );
   }
 
-  Widget _buildEmpty() {
+  Widget _buildInfoCard(UserModel user) {
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 48),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+      ),
       child: Column(
         children: [
-          Icon(Icons.inbox_outlined, size: 52, color: Colors.grey[400]),
-          const SizedBox(height: 10),
-          const Text('TA 还没有发布过信息',
-              style: TextStyle(color: Color(0xFF9CA3AF), fontSize: 14)),
+          _buildInfoRow(Icons.badge_outlined, '学号', user.studentId),
+          _buildDivider(),
+          _buildInfoRow(Icons.person_outline, '昵称', user.nickname),
+          _buildDivider(),
+          _buildInfoRow(Icons.school_outlined, '学院', user.college),
+          _buildDivider(),
+          _buildInfoRow(Icons.grade_outlined, '年级', user.grade),
+          _buildDivider(),
+          _buildInfoRow(Icons.phone_outlined, '手机号', user.phone),
+          _buildDivider(),
+          _buildInfoRow(Icons.event_available_outlined, '加入天数', '${user.joinedDays} 天'),
         ],
       ),
     );
   }
 
-  Widget _buildItemCard(ItemModel item) {
-    return GestureDetector(
-      onTap: () {
-        Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => DetailPage(item: item)),
-        );
-      },
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(10),
-              child: Image.network(
-                item.coverImage,
-                width: 76,
-                height: 76,
-                fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => Container(
-                  width: 76,
-                  height: 76,
-                  color: Colors.grey[200],
-                  child: const Icon(Icons.image, color: Colors.grey),
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: item.typeBgColor,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(item.typeLabel,
-                            style: TextStyle(
-                                color: item.typeColor, fontSize: 11, fontWeight: FontWeight.w600)),
-                      ),
-                      const Spacer(),
-                      Text(item.statusLabel,
-                          style: TextStyle(color: item.statusColor, fontSize: 11, fontWeight: FontWeight.w600)),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Text(item.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                          fontSize: 15, fontWeight: FontWeight.w600, color: Color(0xFF1F2937))),
-                  const SizedBox(height: 4),
-                  Text(item.summary,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 12, color: Color(0xFF6B7280))),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      const Icon(Icons.location_on, color: Color(0xFFFF7A2E), size: 14),
-                      const SizedBox(width: 2),
-                      Expanded(
-                        child: Text('${item.location}  |  ${item.createdAt}',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontSize: 12, color: Color(0xFF9CA3AF))),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
+  Widget _buildInfoRow(IconData icon, String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      child: Row(
+        children: [
+          Icon(icon, color: const Color(0xFFFF7A2E), size: 18),
+          const SizedBox(width: 10),
+          SizedBox(
+            width: 72,
+            child: Text(label, style: const TextStyle(color: Color(0xFF6B7280), fontSize: 14)),
+          ),
+          Expanded(
+            child: Text(value,
+                style: const TextStyle(color: Color(0xFF1F2937), fontSize: 14, fontWeight: FontWeight.w500)),
+          ),
+        ],
       ),
+    );
+  }
+
+  Widget _buildDivider() => Container(height: 1, color: const Color(0xFFF0F0F2), margin: const EdgeInsets.only(left: 44));
+
+  Widget _buildActionButtons() {
+    return Column(
+      children: [
+        SizedBox(
+          width: double.infinity,
+          height: 48,
+          child: ElevatedButton.icon(
+            onPressed: () async {
+              final result = await Navigator.of(context).push<bool>(
+                MaterialPageRoute(
+                  builder: (_) => EditProfilePage(
+                    user: _user,
+                    onSaved: () {
+                      if (mounted) {
+                        setState(() => _user = AppData.currentUser.value);
+                      }
+                    },
+                  ),
+                ),
+              );
+              if (result == true && mounted) {
+                setState(() => _user = AppData.currentUser.value);
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFFF7A2E),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+            ),
+            icon: const Icon(Icons.edit_outlined, color: Colors.white, size: 18),
+            label: const Text('修改资料', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600)),
+          ),
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          height: 48,
+          child: OutlinedButton.icon(
+            onPressed: _confirmLogout,
+            style: OutlinedButton.styleFrom(
+              side: const BorderSide(color: Color(0xFFEF4444)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+            ),
+            icon: const Icon(Icons.logout, color: Color(0xFFEF4444), size: 18),
+            label: const Text('退出登录', style: TextStyle(color: Color(0xFFEF4444), fontSize: 16, fontWeight: FontWeight.w600)),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _confirmLogout() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('退出登录'),
+        content: const Text('确定要退出当前账号吗？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('取消', style: TextStyle(color: Color(0xFF6B7280))),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              _doLogout();
+            },
+            child: const Text('确定', style: TextStyle(color: Color(0xFFEF4444))),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _doLogout() {
+    ApiConfig.token = '';
+    AppData.currentUser.value = UserModel(
+      userId: 0,
+      studentId: '',
+      nickname: '',
+      college: '',
+      grade: '',
+      phone: '',
+    );
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const LoginPage()),
+      (route) => false,
     );
   }
 }

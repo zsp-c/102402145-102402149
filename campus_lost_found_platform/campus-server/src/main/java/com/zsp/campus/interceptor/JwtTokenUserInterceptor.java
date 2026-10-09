@@ -38,6 +38,13 @@ public class JwtTokenUserInterceptor implements HandlerInterceptor {
             return true;
         }
 
+        // 白名单路径（登录、注册、错误页）直接放行，不校验 token
+        String uri = request.getRequestURI();
+        if ("/login".equals(uri) || uri.startsWith("/auth/") || "/error".equals(uri)) {
+            log.info("白名单路径放行：{}", uri);
+            return true;
+        }
+
         //1、从请求头中获取令牌
         String token = request.getHeader(jwtProperties.getUserTokenName());
 
@@ -51,8 +58,10 @@ public class JwtTokenUserInterceptor implements HandlerInterceptor {
             //3、通过，放行
             return true;
         } catch (Exception ex) {
-            //4、不通过，响应401状态码
+            //4、不通过，响应401状态码和 JSON 错误信息
             response.setStatus(401);
+            response.setContentType("application/json;charset=UTF-8");
+            response.getWriter().write("{\"code\":0,\"msg\":\"未登录或登录已过期\",\"data\":null}");
             return false;
         }
     }
