@@ -117,7 +117,10 @@ class _SearchPageState extends State<SearchPage> {
 
   /// 触发搜索：记录历史 → 调用 `/items/search` 第 1 页 → 展示结果。
   /// 后续页由 _loadMore 在滚动到底部时追加。
-  Future<void> _doSearch() async {
+  ///
+  /// [recordHistory] 为 false 时只重新查询、不重复上报搜索历史
+  /// （切换结果页签属于换筛选条件，不是一次新的搜索行为）。
+  Future<void> _doSearch({bool recordHistory = true}) async {
     final keyword = _controller.text.trim();
     if (keyword.isEmpty) {
       setState(() {
@@ -128,7 +131,7 @@ class _SearchPageState extends State<SearchPage> {
       });
       return;
     }
-    _addHistoryLocal(keyword);
+    if (recordHistory) _addHistoryLocal(keyword);
     setState(() {
       _loading = true;
       _error = null;
@@ -138,7 +141,12 @@ class _SearchPageState extends State<SearchPage> {
       _total = 0;
     });
     try {
-      final resp = await ApiService.searchItems(keyword: keyword, pageNum: 1, pageSize: _pageSize);
+      final resp = await ApiService.searchItems(
+        keyword: keyword,
+        type: _resultTabTypes[_resultTab],
+        pageNum: 1,
+        pageSize: _pageSize,
+      );
       if (!resp.success) {
         if (mounted) {
           setState(() => _error = resp.msg.isEmpty ? '搜索失败' : resp.msg);
@@ -175,7 +183,12 @@ class _SearchPageState extends State<SearchPage> {
     setState(() => _loadingMore = true);
     try {
       final next = _pageNum + 1;
-      final resp = await ApiService.searchItems(keyword: keyword, pageNum: next, pageSize: _pageSize);
+      final resp = await ApiService.searchItems(
+        keyword: keyword,
+        type: _resultTabTypes[_resultTab],
+        pageNum: next,
+        pageSize: _pageSize,
+      );
       if (!resp.success) {
         if (mounted) setState(() => _loadingMore = false);
         return;
@@ -196,15 +209,17 @@ class _SearchPageState extends State<SearchPage> {
     }
   }
 
-  List<ItemModel> get _filteredResults {
-    final t = _resultTabTypes[_resultTab];
-    if (t == null) return _results;
-    return _results.where((e) => e.type == t).toList();
+  /// 切换结果页签：换筛选条件后带 type 重新从第 1 页查询。
+  /// 筛选在服务端完成，所以「共 N 条」始终是当前条件下的总数。
+  void _switchResultTab(int index) {
+    if (_resultTab == index) return;
+    setState(() => _resultTab = index);
+    _doSearch(recordHistory: false);
   }
 
   @override
   Widget build(BuildContext context) {
-    final filtered = _filteredResults;
+    final filtered = _results;
     return Scaffold(
       backgroundColor: const Color(0xFFF5F6F8),
       appBar: AppBar(
@@ -254,6 +269,7 @@ class _SearchPageState extends State<SearchPage> {
                         setState(() {
                           _searched = false;
                           _results = [];
+                          _total = 0;
                         });
                       },
                       child: const Icon(Icons.close, color: Colors.grey, size: 18),
@@ -352,31 +368,40 @@ class _SearchPageState extends State<SearchPage> {
   Widget _buildResults(List<ItemModel> filtered) {
     return Column(
       children: [
-        if (_results.isNotEmpty)
+        // 页签在搜索后始终显示：某个筛选条件下可能 0 条，
+        // 若跟着结果一起隐藏，就没法切回其他页签了。
+        if (_searched)
           Container(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-            alignment: Alignment.centerLeft,
-            child: Wrap(
-              spacing: 8,
-              children: List.generate(_resultTabLabels.length, (i) {
-                final active = _resultTab == i;
-                return GestureDetector(
-                  onTap: () => setState(() => _resultTab = i),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-                    decoration: BoxDecoration(
-                      color: active ? const Color(0xFFFF7A2E) : Colors.white,
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: active ? const Color(0xFFFF7A2E) : const Color(0xFFE5E7EB)),
-                    ),
-                    child: Text('${_resultTabLabels[i]} ${i == 0 ? _results.length : _filteredResults.length}',
-                        style: TextStyle(
-                            color: active ? Colors.white : const Color(0xFF4B5563),
-                            fontSize: 12,
-                            fontWeight: active ? FontWeight.w600 : FontWeight.normal)),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Wrap(
+                    spacing: 8,
+                    children: List.generate(_resultTabLabels.length, (i) {
+                      final active = _resultTab == i;
+                      return GestureDetector(
+                        onTap: () => _switchResultTab(i),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: active ? const Color(0xFFFF7A2E) : Colors.white,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: active ? const Color(0xFFFF7A2E) : const Color(0xFFE5E7EB)),
+                          ),
+                          child: Text(_resultTabLabels[i],
+                              style: TextStyle(
+                                  color: active ? Colors.white : const Color(0xFF4B5563),
+                                  fontSize: 12,
+                                  fontWeight: active ? FontWeight.w600 : FontWeight.normal)),
+                        ),
+                      );
+                    }),
                   ),
-                );
-              }),
+                ),
+                const SizedBox(width: 8),
+                Text('共 $_total 条', style: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 12)),
+              ],
             ),
           ),
         Expanded(
