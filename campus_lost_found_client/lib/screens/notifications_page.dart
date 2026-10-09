@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 import '../data/app_data.dart';
 import '../models/item_model.dart';
+import '../services/notification_api.dart';
 import '../utils/toast_util.dart';
 
-/// 消息通知页，对应接口文档 `GET /notifications`。
+/// 消息通知页，对应接口文档「消息模块」的 `GET /claims`（认领消息列表）。
 /// 由首页右上角铃铛进入；「联系 TA」发出的联系申请也会出现在这里。
+///
+/// 列表以服务端为准（`claim` 表是事实来源），`GET /claims/stream` 只负责
+/// 把新消息实时推过来；推送断了也不丢数据，重新进入页面拉一次即可补齐。
 class NotificationsPage extends StatefulWidget {
   const NotificationsPage({super.key});
 
@@ -13,7 +17,101 @@ class NotificationsPage extends StatefulWidget {
 }
 
 class _NotificationsPageState extends State<NotificationsPage> {
-  List<NotificationModel> get _items => AppData.notifications;
+  /// 消息列表：收发合一，按时间倒序。
+  List<NotificationModel> _items = [];
+
+  /// 当前登录用户 id，用来判定消息方向（IN / OUT）。
+  int get _currentUserId => AppData.currentUser.value.userId;
+
+  bool _loading = true;
+  String? _error;
+
+  /// 未读数，供「全部已读」与页面内计数使用。
+  int _unread = 0;
+
+  /// SSE 实时推送连接，页面销毁时断开。
+  NotificationStream? _stream;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+    _connectStream();
+  }
+
+  @override
+  void dispose() {
+    _stream?.cancel();
+    super.dispose();
+  }
+
+  /// 拉取消息列表与未读数。
+  Future<void> _load() async {
+    try {
+      final resp = await NotificationApi.fetchNotifications(
+        currentUserId: _currentUserId,
+        pageSize: 50,
+      );
+      if (!resp.success) {
+        if (mounted) {
+          setState(() {
+            _error = resp.msg.isEmpty ? '加载失败' : resp.msg;
+            _loading = false;
+          });
+        }
+        return;
+      }
+      final records = resp.data?.records ?? <NotificationModel>[];
+      final unread = await NotificationApi.fetchUnreadCount();
+      if (mounted) {
+        setState(() {
+          _items = records;
+          // 后端拿不到时按列表里的未读条数兜底。
+          _unread = unread.success ? (unread.data ?? 0) : records.where((e) => !e.read).length;
+          _loading = false;
+          _error = null;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _error = e.toString();
+          _loading = false;
+        });
+      }
+    }
+  }
+
+  /// 建立 SSE 连接：收到新消息直接插到列表顶部。
+  void _connectStream() {
+    _stream = NotificationStream(
+      currentUserId: _currentUserId,
+      onMessage: (n) {
+        if (!mounted) return;
+        // 同一条消息可能既被推送又出现在列表刷新里，按 id 去重。
+        if (_items.any((e) => e.id == n.id)) return;
+        setState(() {
+          _items.insert(0, n);
+          if (!n.read) _unread++;
+        });
+      },
+    )..connect();
+  }
+
+  /// 点击一条消息：收到的消息调后端标记已读；自己发出的不处理
+  /// （后端只允许收件人变更已读状态，本地改只会和后端不一致）。
+  Future<void> _onTapMessage(NotificationModel n) async {
+    if (!n.isIncoming || n.read) return;
+    setState(() {
+      n.read = true;
+      if (_unread > 0) _unread--;
+    });
+    try {
+      await NotificationApi.markRead(n.id);
+    } catch (_) {
+      // 失败不打扰用户：本地已是已读观感，下次进页面以后端为准。
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -39,14 +137,18 @@ class _NotificationsPageState extends State<NotificationsPage> {
           ],
         ),
       ),
-      body: items.isEmpty
-          ? _buildEmpty()
-          : ListView.separated(
-              padding: const EdgeInsets.all(16),
-              itemCount: items.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 12),
-              itemBuilder: (context, index) => _buildDismissible(items[index], index),
-            ),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator(color: Color(0xFFFF7A2E)))
+          : _error != null && items.isEmpty
+              ? _buildErrorView()
+              : items.isEmpty
+                  ? _buildEmpty()
+                  : ListView.separated(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: items.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 12),
+                      itemBuilder: (context, index) => _buildDismissible(items[index], index),
+                    ),
     );
   }
 
@@ -85,26 +187,43 @@ class _NotificationsPageState extends State<NotificationsPage> {
         return confirmed ?? false;
       },
       onDismissed: (_) {
-        setState(() => _items.removeAt(index));
-        // 未读数是 getter 自动计算，删除未读消息会自动减少。
+        setState(() {
+          _items.removeAt(index);
+          if (n.isIncoming && !n.read && _unread > 0) _unread--;
+        });
+        // 接口文档没有提供消息删除接口，这里只从本地列表移除，服务端记录仍在。
         ToastUtil.success(context, n.read ? '已删除' : '已删除一条未读消息');
       },
       child: _buildCard(n),
     );
   }
 
-  void _markAllRead() {
-    final unread = _items.where((e) => !e.read).length;
+  /// `PUT /claims/read-all` —— 把收到的消息全部标记已读。
+  /// 未读数按「我收到的且未读」统计，与后端 unread-count 口径一致。
+  Future<void> _markAllRead() async {
+    final unread = _items.where((e) => e.isIncoming && !e.read).length;
     if (unread == 0) {
       ToastUtil.info(context, '没有未读消息');
       return;
     }
     setState(() {
       for (final n in _items) {
-        n.read = true;
+        if (n.isIncoming) n.read = true;
       }
+      _unread = 0;
     });
-    ToastUtil.success(context, '已将 $unread 条消息标记为已读');
+    try {
+      final resp = await NotificationApi.markAllRead();
+      if (!mounted) return;
+      if (!resp.success) {
+        ToastUtil.info(context, resp.msg.isEmpty ? '操作失败' : resp.msg);
+        _load();
+        return;
+      }
+      ToastUtil.success(context, '已将 $unread 条消息标记为已读');
+    } catch (_) {
+      if (mounted) ToastUtil.info(context, '网络异常，已读状态未能同步到服务器');
+    }
   }
 
   Widget _buildEmpty() {
@@ -120,10 +239,43 @@ class _NotificationsPageState extends State<NotificationsPage> {
     );
   }
 
+  /// 列表加载失败（后端未启动 / token 失效）时的重试视图。
+  Widget _buildErrorView() {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.error_outline, size: 52, color: Color(0xFFFF7A2E)),
+          const SizedBox(height: 10),
+          Text(_error ?? '加载失败', style: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 14)),
+          const SizedBox(height: 12),
+          GestureDetector(
+            onTap: () {
+              setState(() {
+                _loading = true;
+                _error = null;
+              });
+              _load();
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFF7A2E),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: const Text('重试',
+                  style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildCard(NotificationModel n) {
     final isSystem = n.type == NotificationType.system;
     return GestureDetector(
-      onTap: () => setState(() => n.read = true),
+      onTap: () => _onTapMessage(n),
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(

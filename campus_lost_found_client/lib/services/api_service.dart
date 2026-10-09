@@ -158,6 +158,15 @@ class ApiService {
     );
   }
 
+  /// `GET /users/{userId}` —— 获取指定用户资料。
+  /// 详情页点发布者看「学生详情」时用，替代原先写死的 mock 用户。
+  static Future<ApiResponse<UserModel>> getUserById(int userId) async {
+    return _get<UserModel>(
+      '/users/$userId',
+      (d) => UserModel.fromJson(d as Map<String, dynamic>),
+    );
+  }
+
   /// `PUT /users/me` —— 修改当前用户资料。
   /// 可修改字段：nickname, avatar, phone, college, grade
   static Future<ApiResponse<UserModel>> updateUser({

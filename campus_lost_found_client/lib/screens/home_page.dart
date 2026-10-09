@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../data/app_data.dart';
 import '../models/item_model.dart';
 import '../services/api_service.dart';
+import '../services/notification_api.dart';
 import 'search_page.dart';
 import 'publish_page.dart';
 import 'my_publish_page.dart';
@@ -27,12 +28,16 @@ class _HomePageState extends State<HomePage> {
   bool _loading = true;
   String? _error;
 
+  /// 未读消息数，来自 `GET /claims/unread-count`，决定铃铛红点是否显示。
+  int _unread = 0;
+
   final GlobalKey<MyPublishPageState> _myPublishKey = GlobalKey();
 
   @override
   void initState() {
     super.initState();
     _loadItems();
+    _loadUnread();
   }
 
   /// 从后端拉取最新信息列表，根据当前 Tab 筛选 type。
@@ -64,6 +69,19 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  /// 拉取未读消息数，驱动铃铛红点。
+  /// 后端未启动或 token 失效时静默失败：红点不显示即可，不弹提示打扰用户。
+  Future<void> _loadUnread() async {
+    try {
+      final resp = await NotificationApi.fetchUnreadCount();
+      if (mounted && resp.success) {
+        setState(() => _unread = resp.data ?? 0);
+      }
+    } catch (_) {
+      // 忽略：下次进消息页或重开 App 会再拉一次。
+    }
+  }
+
   /// 底部栏返回首页。
   void _goHome() => setState(() => _currentIndex = 0);
 
@@ -83,12 +101,12 @@ class _HomePageState extends State<HomePage> {
     _goHome();
   }
 
-  /// 打开消息通知页；返回后刷新未读红点。
+  /// 打开消息通知页；返回后重新拉未读数刷新红点。
   Future<void> _openNotifications() async {
     await Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => const NotificationsPage()),
     );
-    if (mounted) setState(() {});
+    if (mounted) _loadUnread();
   }
 
   /// 打开自己的学生详情页。
@@ -237,8 +255,8 @@ class _HomePageState extends State<HomePage> {
                     alignment: Alignment.center,
                     children: [
                       const Icon(Icons.notifications_none, color: Colors.white, size: 22),
-                      // 未读红点。
-                      if (AppData.unreadCount > 0)
+                      // 未读红点：未读数走后端 /claims/unread-count。
+                      if (_unread > 0)
                         Positioned(
                           top: 7,
                           right: 7,
