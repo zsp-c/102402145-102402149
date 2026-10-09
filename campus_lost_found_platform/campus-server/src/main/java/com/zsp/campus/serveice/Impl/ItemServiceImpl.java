@@ -70,6 +70,8 @@ public class ItemServiceImpl implements ItemService {
     @Override
     public PageResult pageQuery(String type, String category, Integer pageNum, Integer pageSize) {
         LambdaQueryWrapper<Item> wrapper = buildBaseWrapper();
+        // 首页不展示已解决（已找回/已归还）的物品
+        wrapper.notIn(Item::getStatus, STATUS_FOUND, STATUS_CLAIMED);
         if (StringUtils.hasText(type)) {
             wrapper.eq(Item::getType, type);
         }
@@ -212,6 +214,8 @@ public class ItemServiceImpl implements ItemService {
     @Override
     public PageResult search(String keyword, String type, String category, Integer pageNum, Integer pageSize) {
         LambdaQueryWrapper<Item> wrapper = buildBaseWrapper();
+        // 搜索结果也不展示已解决（已找回/已归还）的物品
+        wrapper.notIn(Item::getStatus, STATUS_FOUND, STATUS_CLAIMED);
         if (StringUtils.hasText(keyword)) {
             wrapper.and(w -> w.like(Item::getName, keyword)
                     .or().like(Item::getDescription, keyword)

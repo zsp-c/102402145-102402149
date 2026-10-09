@@ -30,6 +30,18 @@ class _DetailPageState extends State<DetailPage> {
   bool _loading = true;
   String? _error;
 
+  /// 「联系 TA」弹窗里的附言输入框。
+  ///
+  /// 必须由 State 持有并在 dispose() 里释放：showDialog 的 Future 在
+  /// Navigator.pop 那一刻就完成了，但弹窗此时才开始播**退场动画**，
+  /// 里面的 TextField 仍然挂在树上并持有这个 controller。
+  /// 若在 await showDialog 之后立即 dispose，会抛
+  /// "A TextEditingController was used after being disposed"，
+  /// 而异常是在 element 树更新（updateChild / performRebuild）途中抛出的，
+  /// 会把树更新打断在半途，留下 dependents 未清理的状态，
+  /// 进而触发 `_dependents.isEmpty` 断言与 Duplicate GlobalKeys 报错。
+  final _contactMessageCtrl = TextEditingController();
+
   ItemModel get item => _item;
 
   @override
@@ -37,6 +49,12 @@ class _DetailPageState extends State<DetailPage> {
     super.initState();
     _item = widget.item;
     _loadDetail();
+  }
+
+  @override
+  void dispose() {
+    _contactMessageCtrl.dispose();
+    super.dispose();
   }
 
   /// 用 item.id 拉取完整详情（含发布者 user、完整描述等列表接口不返回的字段）。
@@ -716,7 +734,7 @@ class _DetailPageState extends State<DetailPage> {
   Future<void> _onContact() async {
     final peer = item.user;
     final me = AppData.currentUser.value;
-    final messageCtrl = TextEditingController();
+    _contactMessageCtrl.clear();
 
     final confirmed = await showDialog<bool>(
       context: context,
@@ -751,7 +769,7 @@ class _DetailPageState extends State<DetailPage> {
               ),
               const SizedBox(height: 12),
               TextField(
-                controller: messageCtrl,
+                controller: _contactMessageCtrl,
                 maxLines: 3,
                 maxLength: 100,
                 decoration: InputDecoration(
@@ -787,9 +805,9 @@ class _DetailPageState extends State<DetailPage> {
       ),
     );
 
-    final message = messageCtrl.text.trim();
-    messageCtrl.dispose();
     if (confirmed != true) return;
+    // 注意：这里不能 dispose controller —— 弹窗还在退场动画中（见字段处的说明）。
+    final message = _contactMessageCtrl.text.trim();
 
     // 走后端 `POST /claims`：消息落库后出现在双方的消息页里（对方未读、红点亮起）。
     // 之前这里只往本地 AppData 塞了一条假记录，消息页拉取时自然看不到。

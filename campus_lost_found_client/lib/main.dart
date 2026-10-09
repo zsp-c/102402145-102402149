@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'services/api_service.dart';
 import 'screens/login_page.dart';
-import 'screens/home_page.dart';
 
 void main() {
   ApiConfig.token = '';
@@ -37,7 +36,18 @@ class CampusLostFoundApp extends StatelessWidget {
         ),
         useMaterial3: true,
       ),
-      home: ApiConfig.isLoggedIn ? const HomePage() : const LoginPage(),
+      // 入口固定为登录页：main() 里已经把 token 清空，启动时必然是未登录状态。
+      //
+      // 这里不能写成 `ApiConfig.isLoggedIn ? HomePage() : LoginPage()`：
+      // ApiConfig.isLoggedIn 是可变的静态变量，登录后它会变成 true，
+      // 此时根 widget 只要再 build 一次（热重载等），home 就会从 LoginPage
+      // 翻成 HomePage；而路由栈里已经有一条 HomePage 了（登录时 push 进去的），
+      // 同一个 Navigator 里出现两条 HomePage 路由，导致 Overlay 中出现重复的
+      // _OverlayEntryWidgetState GlobalKey —— 即 "Duplicate GlobalKeys" 报错。
+      //
+      // 结论：命令式导航（pushAndRemoveUntil）与声明式根切换不能混用，
+      //       登录/退出的页面切换统一交给 Navigator 负责。
+      home: const LoginPage(),
     );
   }
 }

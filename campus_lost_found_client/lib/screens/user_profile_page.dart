@@ -313,6 +313,9 @@ class _UserProfilePageState extends State<UserProfilePage> {
 
   void _doLogout() {
     ApiConfig.token = '';
+    // 先清空用户信息再换路由：此刻首页还在树上，监听 currentUser 的
+    // ValueListenableBuilder 会在这一帧正常重建一次（不涉及路由搬迁），
+    // 之后才切路由栈，避免 element 树搬迁途中被通知。
     AppData.currentUser.value = UserModel(
       userId: 0,
       studentId: '',

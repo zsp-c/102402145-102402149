@@ -51,4 +51,18 @@ public interface ClaimService {
      * 把当前登录用户收到的消息全部标记为已读。
      */
     void markAllRead();
+
+    /**
+     * 删除当前登录用户所有已读消息（仅收到的已读消息）。
+     *
+     * @return 删除的条数
+     */
+    int deleteRead();
+
+    /**
+     * 删除单条消息。发送者和接收者都可以删除（各自视角删除）。
+     *
+     * @param claimId 消息 id
+     */
+    void deleteOne(Long claimId);
 }

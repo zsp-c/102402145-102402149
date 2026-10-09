@@ -129,10 +129,21 @@ class _NotificationsPageState extends State<NotificationsPage> {
             const Spacer(),
             const Text('消息通知'),
             const Spacer(),
-            GestureDetector(
-              onTap: _markAllRead,
-              child: const Text('全部已读',
-                  style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                GestureDetector(
+                  onTap: _deleteRead,
+                  child: const Text('删除已读',
+                      style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
+                ),
+                const SizedBox(width: 16),
+                GestureDetector(
+                  onTap: _markAllRead,
+                  child: const Text('全部已读',
+                      style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
+                ),
+              ],
             ),
           ],
         ),
@@ -146,7 +157,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
                   : ListView.separated(
                       padding: const EdgeInsets.all(16),
                       itemCount: items.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 12),
+                      separatorBuilder: (_, _) => const SizedBox(height: 12),
                       itemBuilder: (context, index) => _buildDismissible(items[index], index),
                     ),
     );
@@ -191,7 +202,8 @@ class _NotificationsPageState extends State<NotificationsPage> {
           _items.removeAt(index);
           if (n.isIncoming && !n.read && _unread > 0) _unread--;
         });
-        // 接口文档没有提供消息删除接口，这里只从本地列表移除，服务端记录仍在。
+        // 异步调用后端删除接口，失败不阻塞 UI（本地已移除）。
+        NotificationApi.deleteOne(n.id).then((_) {}, onError: (_) {});
         ToastUtil.success(context, n.read ? '已删除' : '已删除一条未读消息');
       },
       child: _buildCard(n),
@@ -223,6 +235,56 @@ class _NotificationsPageState extends State<NotificationsPage> {
       ToastUtil.success(context, '已将 $unread 条消息标记为已读');
     } catch (_) {
       if (mounted) ToastUtil.info(context, '网络异常，已读状态未能同步到服务器');
+    }
+  }
+
+  /// `DELETE /claims/read` —— 一键删除所有已读消息。
+  /// 仅删除收到的已读消息。
+  Future<void> _deleteRead() async {
+    final readCount = _items.where((e) => e.read).length;
+    if (readCount == 0) {
+      ToastUtil.info(context, '没有已读消息可删除');
+      return;
+    }
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('删除已读消息', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+        content: Text('确定删除 $readCount 条已读消息吗？此操作不可撤销。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('取消', style: TextStyle(color: Color(0xFF6B7280))),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('删除', style: TextStyle(color: Color(0xFFE54D42))),
+          ),
+        ],
+      ),
+    );
+    if (!(confirmed ?? false)) return;
+
+    // 先本地移除已读消息，再调用后端删除。
+    setState(() {
+      _items.removeWhere((e) => e.read);
+    });
+
+    try {
+      final resp = await NotificationApi.deleteRead();
+      if (!mounted) return;
+      if (!resp.success) {
+        ToastUtil.info(context, resp.msg.isEmpty ? '删除失败' : resp.msg);
+        _load();
+        return;
+      }
+      final deleted = resp.data ?? readCount;
+      ToastUtil.success(context, '已删除 $deleted 条已读消息');
+    } catch (_) {
+      if (mounted) {
+        ToastUtil.info(context, '网络异常，删除未能同步到服务器');
+        _load();
+      }
     }
   }
 

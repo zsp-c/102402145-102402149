@@ -57,6 +57,10 @@ public class ClaimServiceImpl implements ClaimService {
     private static final int CONTENT_MAX_LENGTH = 500;
     /** 未填写附言时的默认文案 */
     private static final String DEFAULT_CONTENT = "我想联系你了解这个物品的更多细节";
+    /** 寻物已解决：已找回 */
+    private static final String STATUS_FOUND = "FOUND";
+    /** 招领已解决：已归还 */
+    private static final String STATUS_CLAIMED = "CLAIMED";
 
     @Autowired
     private ClaimMapper claimMapper;
@@ -77,24 +81,25 @@ public class ClaimServiceImpl implements ClaimService {
     public PageResult pageQuery(Integer pageNum, Integer pageSize) {
         Long userId = BaseContext.getCurrentId();
 
-        // 「与我相关」= 我发出的 + 我收到的，一个条件搞定
+        // 只展示「我收到的」消息，不展示自己发出的
         LambdaQueryWrapper<Claim> wrapper = new LambdaQueryWrapper<Claim>()
-                .and(w -> w.eq(Claim::getSenderId, userId)
-                        .or()
-                        .eq(Claim::getReceiverId, userId))
+                .eq(Claim::getReceiverId, userId)
                 .orderByDesc(Claim::getCreateTime);
 
         Page<Claim> page = new Page<>(pageNum, pageSize);
         claimMapper.selectPage(page, wrapper);
 
-        List<ClaimVo> records = convertToVoList(page.getRecords());
+        // 过滤掉已完成（已找回/已归还）物品的消息：物品已解决，联系消息不再展示
+        List<Claim> filtered = filterResolvedItems(page.getRecords());
+
+        List<ClaimVo> records = convertToVoList(filtered);
 
         PageResult result = new PageResult();
-        result.setTotal(page.getTotal());
+        result.setTotal((long) records.size());
         result.setRecords(records);
         result.setPageNum(page.getCurrent());
         result.setPageSize(page.getSize());
-        result.setPages(page.getPages());
+        result.setPages(records.isEmpty() ? 0L : 1L);
         return result;
     }
 
@@ -185,9 +190,59 @@ public class ClaimServiceImpl implements ClaimService {
         log.info("全部标记已读完成，receiverId={}", userId);
     }
 
+    @Override
+    public int deleteRead() {
+        Long userId = BaseContext.getCurrentId();
+
+        // 只删除我收到的已读消息
+        int rows = claimMapper.delete(new LambdaQueryWrapper<Claim>()
+                .eq(Claim::getReceiverId, userId)
+                .eq(Claim::getReadStatus, READ_STATUS_READ));
+
+        log.info("删除已读消息完成，userId={}, 删除条数={}", userId, rows);
+        return rows;
+    }
+
+    @Override
+    public void deleteOne(Long claimId) {
+        Claim claim = getExistClaim(claimId);
+        Long currentId = BaseContext.getCurrentId();
+        // 发送者和接收者都可以删除自己视角的这条消息
+        if (!claim.getSenderId().equals(currentId) && !claim.getReceiverId().equals(currentId)) {
+            throw new BaseException("只能删除自己相关的消息");
+        }
+        claimMapper.deleteById(claimId);
+        log.info("删除单条消息成功，claimId={}, userId={}", claimId, currentId);
+    }
+
     // ============================================================
     //  私有辅助方法
     // ============================================================
+
+    /**
+     * 过滤掉关联物品已完成（已找回 FOUND / 已归还 CLAIMED）的消息。
+     * 物品已解决，联系消息不再展示在消息列表。
+     */
+    private List<Claim> filterResolvedItems(List<Claim> claims) {
+        if (CollectionUtils.isEmpty(claims)) {
+            return Collections.emptyList();
+        }
+        Set<Long> itemIds = claims.stream().map(Claim::getItemId).collect(Collectors.toSet());
+        Map<Long, Item> itemMap = itemMapper.selectBatchIds(itemIds).stream()
+                .collect(Collectors.toMap(Item::getItemId, i -> i, (a, b) -> a));
+
+        return claims.stream()
+                .filter(claim -> {
+                    Item item = itemMap.get(claim.getItemId());
+                    if (item == null) {
+                        // 物品已被物理删除，消息也不再展示
+                        return false;
+                    }
+                    String status = item.getStatus();
+                    return !STATUS_FOUND.equals(status) && !STATUS_CLAIMED.equals(status);
+                })
+                .collect(Collectors.toList());
+    }
 
     /** 查询存在的消息，查不到直接报错。 */
     private Claim getExistClaim(Long claimId) {
